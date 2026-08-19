@@ -296,7 +296,7 @@ layout {
 spawn-at-startup "awww-daemon"
 spawn-sh-at-startup "awww-daemon -n overview"
 spawn-at-startup "vicinae" "server"
-spawn-at-startup "awww" "img" "/home/lyorn/Pictures/Waypaper/overview_wallpaper1.png" "-n" "overview"
+spawn-at-startup "awww" "img" "/home/lyorn/Pictures/overview_wallpaper1.png" "-n" "overview"
 spawn-at-startup "sunsetr"
 spawn-at-startup "waybar"
 spawn-at-startup "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
@@ -352,6 +352,7 @@ window-rule {
     // You can get away with just app-id="wezterm" if you want.
     // match app-id=r#"^org\.wezfurlong\.wezterm$"#
     match app-id="clipse-gui"
+    match app-id="clipse"
     match app-id="waypaper"
     open-floating true
     default-column-width {}
@@ -454,15 +455,16 @@ binds {
     Mod+Shift+Slash { show-hotkey-overlay; }
 
     //Lyorn My Custom Keyboard Shortcuts 我的自定义的快捷键
+    Mod+Shift+B { spawn-sh "brightnessctl set 260"; }
     Mod+E { spawn "nautilus"; }
-    Mod+Alt+V { spawn "clipse-gui"; }
+    Mod+Alt+V { spawn-sh "clipse-gui"; }
     Mod+Shift+S { spawn-sh "niri msg action screenshot"; }
     Mod+Shift+D { spawn-sh "wl-paste | satty -f -"; }
     Mod+Alt+W { spawn "waypaper"; }
     Mod+F2 { spawn-sh "pkill waybar || true && waybar"; }
     Mod+F3 { spawn-sh "pkill fcitx5 || true && fcitx5 -d"; }
 
-    Mod+T hotkey-overlay-title="Open a Terminal: kitty" { spawn "kitty" "zellij"; }
+    Mod+T hotkey-overlay-title="Open a Terminal: kitty" { spawn-sh "ghostty >/dev/null 2>&1 &"; }
     Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn "fuzzel"; }
     Super+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
     Alt+Space repeat=false { spawn "vicinae" "toggle"; }

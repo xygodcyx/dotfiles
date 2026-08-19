@@ -31,13 +31,7 @@ return {
         filetypes = { "typescript", "javascript", "javascriptreact", "typescriptreact", "vue" },
       }
 
-      opts.servers.cssls = {}
-
-      opts.servers.css_variables = {}
-
       opts.servers.tailwindcss = {}
-
-      opts.servers.cssmodules_ls = {}
 
       -- 2. 启用 Vue 语言服务器 (volar)
       opts.servers.volar = {}

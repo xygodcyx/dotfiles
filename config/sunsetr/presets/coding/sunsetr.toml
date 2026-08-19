@@ -1,0 +1,50 @@
+# sunsetr configuration
+# Documentation:
+# https://psi4j.github.io/sunsetr/configuration/
+
+#[Backend]
+backend = "auto"
+transition_mode = "geo"
+
+#[Smoothing]
+# Avoid sudden color jumps
+smoothing = true
+startup_duration = 0.5
+shutdown_duration = 0.5
+adaptive_interval = 1
+
+#[Time-based config]
+# Day:
+#   Natural white, good for color accuracy
+#
+# Night:
+#   Warm enough to reduce blue light,
+#   but still keeps code colors readable.
+
+night_temp = 3000
+day_temp = 6500
+
+night_gamma = 90
+day_gamma = 100
+
+update_interval = "auto"
+
+#[Static config]
+# Used when transition_mode = "static"
+static_temp = 6500
+static_gamma = 100
+
+#[Manual transitions]
+# Around sunset/sunrise.
+# Adjust according to your sleep schedule.
+
+#sunset = "19:00:00"
+#sunrise = "06:30:00"
+
+# Gradual transition time (minutes)
+transition_duration = 45
+
+#[Geolocation]
+# Qingdao example
+latitude = 36.098611
+longitude = 120.371941

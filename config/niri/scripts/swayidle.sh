@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-# 5分钟锁屏，10分钟熄屏，20分钟休眠
+FILE="/tmp/brightness"
+
 swayidle -w \
   timeout 300 'swaylock -f' \
-  timeout 600 'niri msg action power-off-monitors' \
-  resume 'niri msg action power-on-monitors && brightnessctl save 260' \
+  lock 'swaylock -f' \
+  timeout 600 "brightnessctl -m | awk -F, '{print \$4}' > $FILE && niri msg action power-off-monitors" \
+  resume "niri msg action power-on-monitors && brightnessctl set \"\$(cat $FILE)\"" \
   timeout 1200 'systemctl suspend'
