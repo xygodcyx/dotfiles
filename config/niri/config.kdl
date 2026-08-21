@@ -405,6 +405,7 @@ layer-rule {
 // mpv no blur
 window-rule {
     match app-id="mpv"
+    match app-id="steam_app_default"
     opacity 1.0
 }
 

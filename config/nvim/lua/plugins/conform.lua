@@ -1,37 +1,74 @@
----@type conform.setupOpts
-local opts = {
-  default_format_opts = {
-    timeout_ms = 500,
-    async = false, -- not recommended to change
-    quiet = false, -- not recommended to change
-    lsp_format = "fallback", -- not recommended to change
-  },
-  formatters_by_ft = {
-    lua = { "stylua" },
-    sh = { "shfmt" },
-    html = { "prettier" },
-    ts = { "oxfmt" },
-  },
-  -- The options you set here will be merged with the builtin formatters.
-  -- You can also define any custom formatters here.
-  ---@type table<string, conform.FormatterConfigOverride|fun(bufnr: integer): nil|conform.FormatterConfigOverride>
-  formatters = {
-    injected = { options = { ignore_errors = true } },
-    -- # Example of using dprint only when a dprint.json file is present
-    -- dprint = {
-    --   condition = function(ctx)
-    --     return vim.fs.find({ "dprint.json" }, { path = ctx.filename, upward = true })[1]
-    --   end,
-    -- },
-    --
-    -- # Example of using shfmt with extra args
-    -- shfmt = {
-    --   prepend_args = { "-i", "2", "-ci" },
-    -- },
-  },
-}
-
 return {
   "stevearc/conform.nvim",
-  opts = opts,
+  event = { "BufReadPre", "BufNewFile" },
+  opts = {
+    formatters_by_ft = {
+      lua = { "stylua" },
+      javascript = { "eslint_d", "prettier" },
+      javascriptreact = { "eslint_d", "prettier" },
+      typescript = { "eslint_d", "prettier" },
+      typescriptreact = { "eslint_d", "prettier" },
+      vue = { "eslint_d", "prettier" },
+      json = { "prettier" },
+      jsonc = { "prettier" },
+      css = { "prettier" },
+      scss = { "prettier" },
+      html = { "prettier" },
+      markdown = { "prettier" },
+      yaml = { "prettier" },
+      sh = { "shfmt" },
+    },
+    formatters = {
+      eslint_d = {
+        -- ✅ 修复 cwd 函数
+        cwd = function(ctx)
+          -- 安全处理 ctx
+          if not ctx or not ctx.filename then
+            return vim.fn.getcwd()
+          end
+          local root = vim.fs.root(ctx.filename, {
+            "package.json",
+            "eslint.config.js",
+            ".eslintrc.js",
+            ".eslintrc.json",
+            "pnpm-workspace.yaml",
+          })
+          return root or vim.fn.getcwd()
+        end,
+        prepend_args = { "--fix" },
+        condition = function(ctx)
+          if not ctx or not ctx.filename then
+            return false
+          end
+          return vim.fs.find({ "eslint.config.js", ".eslintrc.js", ".eslintrc.json" }, {
+            path = ctx.filename,
+            upward = true,
+          })[1] ~= nil
+        end,
+      },
+      prettier = {
+        cwd = function(ctx)
+          if not ctx or not ctx.filename then
+            return vim.fn.getcwd()
+          end
+          local root = vim.fs.root(ctx.filename, {
+            ".prettierrc",
+            ".prettierrc.json",
+            ".prettierrc.js",
+            "package.json",
+          })
+          return root or vim.fn.getcwd()
+        end,
+        condition = function(ctx)
+          if not ctx or not ctx.filename then
+            return false
+          end
+          return vim.fs.find({ ".prettierrc", ".prettierrc.json", ".prettierrc.js" }, {
+            path = ctx.filename,
+            upward = true,
+          })[1] ~= nil
+        end,
+      },
+    },
+  },
 }
