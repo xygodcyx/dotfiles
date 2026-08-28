@@ -13,7 +13,6 @@ return {
       local vue_typescript_plugin_path = vue_lsp_path .. "/node_modules/@vue/language-server"
 
       opts.inlay_hints = { enabled = true }
-
       -- 修改 opts.servers 配置
       opts.servers = opts.servers or {}
 
@@ -46,16 +45,9 @@ return {
       opts.servers.pyright = {}
 
       opts.servers.rust_analyzer = {
-        checkOnSave = {
-          command = "clippy",
-        },
+        checkOnSave = {},
         inlayHints = {
           -- 禁用可能导致问题的 inlay hints
-          bindingModeHints = { enable = true },
-          chainingHints = { enable = true },
-          closingBraceHints = { enable = true },
-          parameterHints = { enable = true },
-          typeHints = { enable = true },
         },
       }
       return opts

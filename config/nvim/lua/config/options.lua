@@ -27,3 +27,9 @@ vim.opt.foldlevelstart = 99
 vim.opt.wrap = true
 vim.opt.linebreak = true
 vim.opt.breakindent = true
+vim.opt.expandtab = true
+
+vim.snippet.config = {
+  -- 使用更宽松的解析模式
+  autofix = false,
+}
