@@ -1,5 +1,135 @@
 -- lua/plugins/editor.lua
 return {
+	-- refactoring code
+	{
+		"nvimdev/lspsaga.nvim",
+		config = function()
+			-- 1. 配置 lspsaga
+			require("lspsaga").setup({
+				-- 边框样式
+				border = "rounded",
+				-- 关闭事件
+				close_events = {
+					"BufLeave",
+					"InsertEnter",
+					"CursorMoved",
+				},
+				-- 诊断配置
+				diagnostic = {
+					on_insert = false,
+					show_source = true,
+					jump_float = true,
+				},
+				-- 代码操作
+				code_action = {
+					num_shortcut = true,
+					keys = {
+						quit = "q",
+						exec = "<CR>",
+					},
+				},
+				-- 查找器
+				finder = {
+					keys = {
+						tabe = "<CR>",
+					},
+				},
+				-- 重命名
+				rename = {
+					keys = {
+						quit = "q",
+						exec = "<CR>",
+					},
+				},
+				-- 定义预览
+				definition = {
+					keys = {
+						tabe = "<CR>",
+					},
+					edit = "<C-c>o",
+				},
+				-- 面包屑
+				breadcrumbs = {
+					enable = true,
+					icon = ">",
+					separator = "▸",
+				},
+				-- 大纲
+				outline = {
+					keys = {
+						jump = "<CR>",
+						quit = "q",
+					},
+				},
+				-- 调用层级
+				call_hierarchy = {
+					keys = {
+						jump = "<CR>",
+						quit = "q",
+					},
+				},
+				-- 浮动终端
+				floaterm = {
+					height = 0.6,
+					width = 0.6,
+				},
+			})
+
+			-- Hover 文档
+			vim.keymap.set("n", "K", "<cmd>Lspsaga hover_doc<CR>", { desc = "Hover Documentation" })
+
+			-- 预览定义
+			vim.keymap.set("n", "gd", "<cmd>Lspsaga peek_definition<CR>", { desc = "Peek Definition" })
+
+			-- 预览类型定义
+			vim.keymap.set("n", "gt", "<cmd>Lspsaga peek_type_definition<CR>", { desc = "Peek Type Definition" })
+
+			-- 查找引用（Finder）
+			vim.keymap.set("n", "gr", "<cmd>Lspsaga finder<CR>", { desc = "Find References" })
+
+			-- 代码操作
+			vim.keymap.set("n", "<leader>ca", "<cmd>Lspsaga code_action<CR>", { desc = "Code Action" })
+
+			-- 重命名
+			vim.keymap.set("n", "<leader>rn", "<cmd>Lspsaga rename<CR>", { desc = "Rename" })
+
+			-- 诊断跳转
+			vim.keymap.set("n", "[d", "<cmd>Lspsaga diagnostic_jump_prev<CR>", { desc = "Previous Diagnostic" })
+			vim.keymap.set("n", "]d", "<cmd>Lspsaga diagnostic_jump_next<CR>", { desc = "Next Diagnostic" })
+
+			-- 显示行内诊断
+			vim.keymap.set(
+				"n",
+				"<leader>ce",
+				"<cmd>Lspsaga show_line_diagnostics<CR>",
+				{ desc = "Show Line Diagnostics" }
+			)
+
+			-- 调用层级
+			vim.keymap.set("n", "<leader>ci", "<cmd>Lspsaga incoming_calls<CR>", { desc = "Incoming Calls" })
+			vim.keymap.set("n", "<leader>co", "<cmd>Lspsaga outgoing_calls<CR>", { desc = "Outgoing Calls" })
+
+			-- 大纲
+			vim.keymap.set("n", "<leader>o", "<cmd>Lspsaga outline<CR>", { desc = "Outline" })
+
+			-- 浮动终端
+			vim.keymap.set("n", "<leader>t", "<cmd>Lspsaga term_toggle<CR>", { desc = "Float Terminal" })
+
+			-- 面包屑切换
+			vim.keymap.set("n", "<leader>bb", "<cmd>Lspsaga toggle_breadcrumbs<CR>", { desc = "Toggle Breadcrumbs" })
+		end,
+		dependencies = {
+			"nvim-treesitter/nvim-treesitter", -- optional
+			"nvim-tree/nvim-web-devicons", -- optional
+		},
+	},
+	{
+		"ThePrimeagen/refactoring.nvim",
+		dependencies = {
+			"lewis6991/async.nvim",
+		},
+		lazy = false,
+	},
 	{
 		"abecodes/tabout.nvim",
 		dependencies = { -- These are optional

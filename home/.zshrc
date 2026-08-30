@@ -24,3 +24,10 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME/bin:$PATH" ;;
 esac
 # pnpm end
+
+#alias
+
+alias cr="cargo run"
+alias cc="cargo check"
+alias cb="cargo build"
+alias cbr="cargo build --release"

@@ -1,6 +1,14 @@
 -- lua/plugins/ui.lua
 return {
-	-- lua/plugins/ui.lua
+	{
+		"mei28/luminate.nvim",
+		event = "VeryLazy",
+		config = function()
+			require("luminate").setup({
+				duration = 130, -- 高亮持续毫秒数
+			})
+		end,
+	},
 	{
 		"stevearc/dressing.nvim",
 		opts = {},
@@ -50,11 +58,6 @@ return {
 	{
 		"romgrk/barbar.nvim",
 		dependencies = { "nvim-tree/nvim-web-devicons" },
-		config = function()
-			vim.keymap.set("n", "<S-L>", ":BufferNext<CR>", { desc = "Next Buffer" })
-			vim.keymap.set("n", "<S-H>", ":BufferPrevious<CR>", { desc = "Previous Buffer" })
-			vim.keymap.set("n", "<S-W>", ":BufferClose<CR>", { desc = "Close Buffer" })
-		end,
 	},
 	{
 		"sphamba/smear-cursor.nvim",

@@ -4,6 +4,8 @@
 // https://niri-wm.github.io/niri/Configuration:-Introduction
 environment {
 	LC_MESSAGES "zh_CN.UTF-8"
+    LANG "zh_CN.UTF-8"
+    LANGUAGE "zh_CN:en_US"
 }
 
 // Input device configuration.
@@ -364,7 +366,7 @@ window-rule {
     //剪掉圆角外的窗口内容
     clip-to-geometry true
     //透明度
-    opacity 0.85
+    opacity 0.97
     //禁止边框画到窗口后面
     draw-border-with-background false
 }
@@ -465,7 +467,7 @@ binds {
     Mod+F2 { spawn-sh "pkill waybar || true && waybar"; }
     Mod+F3 { spawn-sh "pkill fcitx5 || true && fcitx5 -d"; }
 
-    Mod+T hotkey-overlay-title="Open a Terminal: kitty" { spawn-sh "ghostty >/dev/null 2>&1 &"; }
+    Mod+T hotkey-overlay-title="Open a Terminal: kitty" { spawn-sh "kitty -e zellij"; }
     Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn "fuzzel"; }
     Super+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
     Alt+Space repeat=false { spawn "vicinae" "toggle"; }

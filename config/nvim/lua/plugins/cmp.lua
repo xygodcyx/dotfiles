@@ -31,6 +31,12 @@ return {
 			"hrsh7th/cmp-buffer",
 			-- 路径补全源
 			"hrsh7th/cmp-path",
+			{
+				"tzachar/cmp-fuzzy-buffer",
+				dependencies = {
+					"tzachar/fuzzy.nvim",
+				},
+			}, -- 模糊搜索
 			-- 代码片段引擎
 			{
 				"L3MON4D3/LuaSnip",
@@ -70,13 +76,13 @@ return {
 					},
 				},
 				-- 1. 设置预选策略为 Always（强制总是选择 LSP 返回的默认首选项）
-				preselect = cmp.PreselectMode.Item,
+				-- preselect = cmp.PreselectMode.Item,
 
 				-- 2. 调整 completeopt 行为
 				completion = {
 					-- remove 'noinsert' and 'noselect'
 					-- 'select' 表示默认选中第一项，'menu,menuone' 表示有菜单时显示
-					completeopt = "menu,menuone,select",
+					completeopt = "menu,menuone",
 					autocomplete = { cmp.TriggerEvent.TextChanged },
 				},
 				snippet = {
@@ -146,9 +152,9 @@ return {
 							return true
 						end,
 					},
-
 					{ name = "path", priority = 500 },
-					{ name = "buffer", priority = 250, keyword_length = 3 }, -- 限制仅当输入达到3个字符才从 buffer 提取，防止乱七八糟的干扰
+					{ name = "buffer", priority = 250, keyword_length = 0 }, -- 限制仅当输入达到0个字符才从 buffer 提取，防止乱七八糟的干扰
+					{ name = "fuzzy" }, -- 添加模糊搜索源
 				}),
 				-- 补全窗口样式
 
@@ -163,9 +169,6 @@ return {
 						border = "rounded",
 						winhighlight = "Normal:NormalFloat,CursorLine:PmenuSel,Search:None",
 						-- 限制文档窗口的尺寸范围，防止被挤压变狭长
-						max_width = 80,
-						max_height = 20,
-						side_padding = 1,
 					}),
 				},
 				performance = {
@@ -206,17 +209,13 @@ return {
 							TypeParameter = "󰊄",
 						}
 						vim_item.kind = (kind_icons[vim_item.kind] or "") .. " " .. vim_item.kind
-						vim_item.menu = ({
-							nvim_lsp = "[LSP]",
-							luasnip = "[Snippet]",
-							buffer = "[Buffer]",
-							path = "[Path]",
-						})[entry.source.name]
 
-						local maxwidth = 60
-						if string.len(vim_item.abbr) > maxwidth then
-							vim_item.abbr = string.sub(vim_item.abbr, 1, maxwidth - 3) .. "..."
+						local item = entry:get_completion_item()
+						if item.detail then
+							local detail = item.detail
+							vim_item.menu = detail
 						end
+
 						return vim_item
 					end,
 				},
@@ -242,6 +241,24 @@ return {
 
 			-- 命令行补全（输入 `:` 命令时）
 			cmp.setup.cmdline(":", {
+				sorting = {
+					comparators = {
+						cmp.config.compare.recently_used,
+						cmp.config.compare.offset,
+						cmp.config.compare.exact,
+						cmp.config.compare.score,
+						cmp.config.compare.locality,
+						cmp.config.compare.kind,
+						cmp.config.compare.sort_text,
+						cmp.config.compare.length,
+						cmp.config.compare.order,
+					},
+				},
+				sources = {
+					{ name = "buffer" },
+					{ name = "cmdline" },
+					{ name = "fuzzy" }, -- 添加模糊搜索源
+				},
 				mapping = cmp.mapping.preset.cmdline({
 					["<CR>"] = cmp.mapping({
 						c = function(fallback)
@@ -285,9 +302,6 @@ return {
 						end,
 					}),
 				}),
-				sources = {
-					{ name = "cmdline" },
-				},
 			})
 
 			-- 搜索补全（输入 `/` 或 `?` 时）

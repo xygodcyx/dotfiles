@@ -5,6 +5,24 @@ vim.api.nvim_create_autocmd("BufWritePre", {
 	end,
 })
 
+-- 在 LSP 配置的 on_attach 回调中绑定
+vim.api.nvim_create_autocmd("LspAttach", {
+	callback = function(event)
+		local opts = { buffer = event.buf }
+		-- 格式化
+		vim.keymap.set(
+			"n",
+			"<leader>fm",
+			function()
+				vim.lsp.buf.format({ async = true })
+			end,
+			vim.tbl_extend("force", opts, {
+				desc = "Format Code",
+			})
+		)
+	end,
+})
+
 local commands = {
 	W = "w",
 	Q = "q",
@@ -39,53 +57,24 @@ vim.api.nvim_create_autocmd("LspAttach", {
 	end,
 })
 
-vim.api.nvim_create_user_command("MasonSearch", function()
-	local ok, telescope = pcall(require, "telescope.pickers")
-	if not ok then
-		vim.notify("未安装 Telescope", vim.log.levels.ERROR)
-		return
-	end
-
-	local registry = require("mason-registry")
-	registry.refresh(function()
-		local packages = registry.get_all_packages()
-		local finders = require("telescope.finders")
-		local conf = require("telescope.config").values
-		local actions = require("telescope.actions")
-		local action_state = require("telescope.actions.state")
-
-		telescope
-			.new({}, {
-				prompt_title = "Search Mason Packages",
-				finder = finders.new_table({
-					results = packages,
-					entry_maker = function(pkg)
-						return {
-							value = pkg,
-							display = pkg.name .. " (" .. table.concat(pkg.spec.languages or {}, ", ") .. ")",
-							ordinal = pkg.name .. " " .. table.concat(pkg.spec.languages or {}, " "),
-						}
-					end,
-				}),
-				sorter = conf.generic_sorter({}),
-				attach_mappings = function(prompt_bufnr, map)
-					actions.select_default:replace(function()
-						actions.close(prompt_bufnr)
-						local selection = action_state.get_selected_entry()
-						vim.cmd("MasonInstall " .. selection.value.name)
-					end)
-					return true
-				end,
-			})
-			:find()
-	end)
-end, {})
-
 vim.api.nvim_create_autocmd("BufReadPost", {
 	pattern = "*",
 	callback = function()
 		vim.schedule(function()
 			vim.cmd("normal! zx") -- zx 用于刷新并应用当前文件的折叠
 		end)
+	end,
+})
+
+vim.api.nvim_create_autocmd("BufReadPost", {
+	pattern = "*",
+	callback = function()
+		-- 获取当前文件的最后编辑位置
+		local mark = vim.api.nvim_buf_get_mark(0, '"')
+		-- mark[1] 是行号，mark[2] 是列号
+		-- 如果行号大于 0 且行号不超过文件总行数，则跳转
+		if mark[1] > 0 and mark[1] <= vim.api.nvim_buf_line_count(0) then
+			vim.api.nvim_win_set_cursor(0, mark)
+		end
 	end,
 })

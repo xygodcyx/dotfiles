@@ -20,7 +20,6 @@ opt.swapfile = false
 opt.backup = false
 opt.writebackup = false
 opt.autowrite = true
-opt.autochdir = false
 
 opt.ignorecase = true
 opt.smartcase = true
