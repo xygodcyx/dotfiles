@@ -1,4 +1,5 @@
 -- lua/plugins/telescope.lua
+
 return {
 	{
 		"nvim-telescope/telescope.nvim",
@@ -13,12 +14,41 @@ return {
 				end,
 			},
 		},
+		opts = {
+			defaults = {
+				vimgrep_arguments = {
+					"rg",
+					"--color=never",
+					"--no-heading",
+					"--with-filename",
+					"--line-number",
+					"--column",
+					"--smart-case",
+					"--hidden", -- 搜索隐藏文件
+				},
+			},
+			pickers = {
+				find_files = {
+					hidden = true, -- 关键：让 find_files 默认显示隐藏文件
+				},
+			},
+		},
 		config = function()
 			local telescope = require("telescope")
 			local actions = require("telescope.actions")
 
 			telescope.setup({
 				defaults = {
+					file_ignore_patterns = {
+						"node_modules",
+						"%.lock",
+						"%.jpg",
+						"%.png",
+						"%.uid",
+						"%.tmp",
+						"%.import",
+						"__pycache__",
+					},
 					mappings = {
 						i = {
 							["<C-j>"] = actions.move_selection_next,
@@ -30,6 +60,7 @@ return {
 
 			-- 快捷键映射
 			local builtin = require("telescope.builtin")
+
 			vim.keymap.set("n", "<leader><leader>", builtin.find_files, { desc = "Find Files" })
 			vim.keymap.set("n", "<leader>fg", builtin.live_grep, { desc = "Live Grep" })
 			vim.keymap.set("n", "<leader>fb", builtin.buffers, { desc = "Find Buffers" })

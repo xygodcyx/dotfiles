@@ -14,11 +14,14 @@ export PNPM_HOME="/home/lyorn/.local/share/pnpm"
 export BUN_INSTALL="$HOME/.bun"
 # rust
 export RUST_INSTALL="$HOME/.cargo"
+#platform-tools
+export PLATFORM_TOOLS="/home/lyorn/Apps/platform-tools"
 #path
-export PATH="/home/lyorn/.local/bin:$BUN_INSTALL/bin:$RUST_INSTALL/bin:$PNPM_HOME/bin:$PNPM_HOME:$PATH:"
+export PATH="/home/lyorn/.local/bin:$BUN_INSTALL/bin:$RUST_INSTALL/bin:$PNPM_HOME/bin:$PNPM_HOME:$PLATFORM_TOOLS:$PATH:"
 
 # pnpm
 export PNPM_HOME="/home/lyorn/.local/share/pnpm"
+
 case ":$PATH:" in
   *":$PNPM_HOME/bin:"*) ;;
   *) export PATH="$PNPM_HOME/bin:$PATH" ;;
@@ -31,3 +34,7 @@ alias cr="cargo run"
 alias cc="cargo check"
 alias cb="cargo build"
 alias cbr="cargo build --release"
+alias e="exit"
+alias n="nvim"
+
+eval "$(direnv hook zsh)"

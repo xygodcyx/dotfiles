@@ -36,6 +36,13 @@ opt.autoindent = true
 opt.colorcolumn = "100"
 opt.clipboard = "unnamedplus"
 
+opt.foldmethod = "expr"
+opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+opt.foldlevel = 99
+opt.foldlevelstart = 99
+opt.foldenable = true
+opt.foldcolumn = "1"
+
 vim.diagnostic.config({
 	virtual_text = {
 		spacing = 4, -- 与代码的间隔
@@ -43,4 +50,10 @@ vim.diagnostic.config({
 	signs = true,
 	underline = true,
 	update_in_insert = false, -- 在插入模式时不频繁刷新报错，避免卡顿
+})
+
+vim.filetype.add({
+	extension = {
+		tcss = "css", -- .tcss 文件类型识别为 css
+	},
 })

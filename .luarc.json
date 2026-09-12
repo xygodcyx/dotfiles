@@ -1,0 +1,10 @@
+{
+    "runtime.version": "LuaJIT",
+    "runtime.special": {
+        "love.filesystem.load": "loadfile"
+    },
+    "workspace.library": [
+        "/home/lyorn/.local/share/LuaAddons",
+        "${3rd}/love2d/library"
+    ]
+}

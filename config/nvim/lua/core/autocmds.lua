@@ -1,27 +1,28 @@
-vim.api.nvim_create_autocmd("BufWritePre", {
-	pattern = "*",
-	callback = function(args)
-		require("conform").format({ bufnr = args.buf })
-	end,
-})
+-- vim.api.nvim_create_autocmd("BufWritePre", {
+-- 	pattern = "*",
+-- 	callback = function(args)
+-- 		require("conform").format({ bufnr = args.buf })
+-- 	end,
+-- })
+
 
 -- 在 LSP 配置的 on_attach 回调中绑定
-vim.api.nvim_create_autocmd("LspAttach", {
-	callback = function(event)
-		local opts = { buffer = event.buf }
-		-- 格式化
-		vim.keymap.set(
-			"n",
-			"<leader>fm",
-			function()
-				vim.lsp.buf.format({ async = true })
-			end,
-			vim.tbl_extend("force", opts, {
-				desc = "Format Code",
-			})
-		)
-	end,
-})
+-- vim.api.nvim_create_autocmd("LspAttach", {
+-- 	callback = function(event)
+-- 		local opts = { buffer = event.buf }
+-- 		-- 格式化
+-- 		vim.keymap.set(
+-- 			"n",
+-- 			"<leader>fm",
+-- 			function()
+-- 				vim.lsp.buf.format({ async = true })
+-- 			end,
+-- 			vim.tbl_extend("force", opts, {
+-- 				desc = "Format Code",
+-- 			})
+-- 		)
+-- 	end,
+-- })
 
 local commands = {
 	W = "w",
