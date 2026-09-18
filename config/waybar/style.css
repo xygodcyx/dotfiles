@@ -6,19 +6,20 @@
 
 /* ── 全局重置 ─────────────────────────────────────────────────── */
 * {
-  border: none;
-  border-radius: 0;
-  min-height: 0;
-  font-family: "JetBrainsMono Nerd Font Mono", "Source Han Sans CN", "Noto Sans", sans-serif;
-  font-size: 12px;
-  font-weight: 500;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    font-family: "JetBrainsMono Nerd Font Mono", "Source Han Sans CN", "Noto Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
 }
 
 /* ── 底栏：完全透明，只有分组的胶囊有背景 ─────────────────────── */
 window#waybar {
-  background: transparent;
-  color: @on_surface;
-  padding: 0 10px; /* 左右留白 */
+    background: transparent;
+    color: @on_surface;
+    padding: 0 10px;
+    /* 左右留白 */
 }
 
 /* ── 分组胶囊 ─────────────────────────────────────────────────── */
@@ -31,98 +32,107 @@ window#waybar {
 #hardware,
 #updates,
 #power {
-  background: alpha(@surface_container, 0.92);
-  border: 1px solid alpha(@outline_variant, 0.40);
-  border-radius: 12px;
-  margin: 4px 2px;
-  padding: 0 6px;
+    background: alpha(@surface_container_low, 0.6);
+    border: 1px solid alpha(@outline_variant, 1);
+    border-radius: 12px;
+    margin: 4px 2px;
+    padding: 0 2px;
+}
+
+#ws {
+    margin-left: 8px;
+}
+
+#power {
+    margin-right: 8px;
 }
 
 /* ── 工作区 ───────────────────────────────────────────────────── */
 #workspaces {
-  padding: 0 2px;
+    padding: 0 2px;
 }
 
 #workspaces button {
-  background: transparent;
-  color: @on_surface_variant;
-  border-radius: 8px;
-  padding: 0 4px;
-  margin: 0 1px;
-  transition: background-color 150ms ease, color 150ms ease;
+    background: transparent;
+    color: @on_surface_variant;
+    border-radius: 8px;
+    padding: 0 4px;
+    margin: 0 1px;
+    transition: background-color 150ms ease, color 150ms ease;
 }
 
 #workspaces button.focused,
 #workspaces button.active {
-  color: @primary;
+    color: @primary;
 }
 
 #workspaces button.empty {
-  color: alpha(@on_surface_variant, 0.35);
+    color: alpha(@on_surface_variant, 0.35);
 }
 
 #workspaces button.urgent {
-  color: @error;
+    color: @error;
 }
 
 #workspaces button:hover {
-  background: alpha(@on_surface, 0.08);
-  color: @on_surface;
+    background: alpha(@on_surface, 0.08);
+    color: @on_surface;
 }
 
 /* ── 天气 + 日期时间 ──────────────────────────────────────────── */
 #custom-weather {
-  color: @on_surface;
-  padding: 0 8px 0 4px;
+    color: @on_surface;
+    padding: 0 8px 0 4px;
 }
 
 #custom-clock {
-  color: @on_surface_variant;
-  padding: 0 4px 0 8px;
+    color: @on_surface_variant;
+    padding: 0 4px 0 8px;
 }
 
 /* ── 打开的应用（niri-taskbar） ───────────────────────────────── */
 .niri-taskbar {
-  padding: 0 2px;
+    padding: 0 2px;
 }
 
 .niri-taskbar button {
-  background: transparent;
-  border-radius: 7px;
-  padding: 4px 3px; /* 图标约 16px，紧凑一致 */
-  margin: 1px 2px;
+    background: transparent;
+    border-radius: 7px;
+    padding: 4px 3px;
+    /* 图标约 16px，紧凑一致 */
+    margin: 1px 2px;
 }
 
 .niri-taskbar button.focused {
-  background: alpha(@primary, 0.20);
+    background: alpha(@primary, 0.20);
 }
 
 .niri-taskbar button.urgent {
-  background: alpha(@error, 0.30);
+    background: alpha(@error, 0.30);
 }
 
 .niri-taskbar button:hover {
-  background: alpha(@on_surface, 0.10);
+    background: alpha(@on_surface, 0.10);
 }
 
 /* 多窗口时的数字角标：当前窗口序号 / 窗口总数 */
 .niri-taskbar .badge {
-  font-size: 7px;
-  font-weight: 700;
-  color: @on_primary;
-  background: @primary;
-  border-radius: 5px;
-  padding: 0 2px;
-  margin: 0;
-  min-width: 0;
-  min-height: 0;
+    font-size: 7px;
+    font-weight: 700;
+    color: @on_primary;
+    background: @primary;
+    border-radius: 5px;
+    padding: 0 2px;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
 }
 
 /* ── 当前聚焦的窗口 ───────────────────────────────────────────── */
 #custom-window {
-  color: @on_surface;
-  font-weight: 600;
-  padding: 0 12px;
+    color: @on_surface;
+    font-weight: 600;
+    padding: 0 12px;
 }
 
 /* ── 网络 / 蓝牙 / 亮度 / 音量 / 电池 / CPU / 温度 ────────────── */
@@ -133,60 +143,60 @@ window#waybar {
 #battery,
 #custom-cpu,
 #temperature {
-  color: @on_surface_variant;
-  padding: 0 7px;
-  transition: color 150ms ease;
+    color: @on_surface_variant;
+    padding: 0 7px;
+    transition: color 150ms ease;
 }
 
 #bluetooth.connected {
-  color: @primary;
+    color: @primary;
 }
 
 #pulseaudio.muted {
-  color: alpha(@on_surface_variant, 0.45);
+    color: alpha(@on_surface_variant, 0.45);
 }
 
 #battery.charging {
-  color: @primary;
+    color: @primary;
 }
 
 #battery.warning:not(.charging) {
-  color: @tertiary;
+    color: @tertiary;
 }
 
 #battery.critical:not(.charging) {
-  color: @error;
+    color: @error;
 }
 
 #temperature.warning {
-  color: @tertiary;
+    color: @tertiary;
 }
 
 #temperature.critical {
-  color: @error;
+    color: @error;
 }
 
 #custom-cpu.high {
-  color: @error;
+    color: @error;
 }
 
 /* ── 系统更新 ─────────────────────────────────────────────────── */
 #custom-updates {
-  color: @on_surface_variant;
-  padding: 0 7px;
-  transition: color 150ms ease;
+    color: @on_surface_variant;
+    padding: 0 7px;
+    transition: color 150ms ease;
 }
 
 #custom-updates.updated {
-  color: alpha(@on_surface_variant, 0.45);
+    color: alpha(@on_surface_variant, 0.45);
 }
 
 #custom-updates.critical {
-  color: @error;
+    color: @error;
 }
 
 #custom-updates:hover {
-  color: @primary;
+    color: @primary;
 }
 
 #custom-weather:hover,
@@ -198,7 +208,7 @@ window#waybar {
 #battery:hover,
 #custom-cpu:hover,
 #temperature:hover {
-  color: @primary;
+    color: @primary;
 }
 
 /* ── 电源按钮 ─────────────────────────────────────────────────── */
@@ -207,34 +217,34 @@ window#waybar {
 #custom-logout,
 #custom-reboot,
 #custom-shutdown {
-  color: @on_surface_variant;
-  padding: 0 6px;
-  transition: color 150ms ease;
+    color: @on_surface_variant;
+    padding: 0 6px;
+    transition: color 150ms ease;
 }
 
 #custom-lock:hover,
 #custom-suspend:hover,
 #custom-logout:hover {
-  color: @primary;
+    color: @primary;
 }
 
 #custom-reboot:hover {
-  color: @tertiary;
+    color: @tertiary;
 }
 
 #custom-shutdown:hover {
-  color: @error;
+    color: @error;
 }
 
 /* ── 工具提示 ─────────────────────────────────────────────────── */
 tooltip {
-  background: alpha(@surface_container_high, 0.98);
-  border: 1px solid @outline_variant;
-  border-radius: 10px;
-  padding: 8px 12px;
+    background: alpha(@surface_container_high, 0.98);
+    border: 1px solid @outline_variant;
+    border-radius: 10px;
+    padding: 8px 12px;
 }
 
 tooltip label {
-  color: @on_surface;
-  font-size: 11px;
+    color: @on_surface;
+    font-size: 11px;
 }

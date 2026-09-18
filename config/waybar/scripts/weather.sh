@@ -133,6 +133,9 @@ full() {
     printf '%s  %s  %-8s %4.0f° ~ %4.0f°   降水 %s%%\n' \
       "${days[$i]}" "$icon_day" "$desc" "${tmins[$i]}" "${tmaxs[$i]}" "${pops[$i]}"
   done
+
+  printf '\n按回车键退出...'
+  read -r _ || true
 }
 
 # ── 入口 ────────────────────────────────────────────────────────────
@@ -157,6 +160,7 @@ main() {
   fi
 
   render "$raw" | tee "$CACHE_FILE"
+
 }
 
 main "$@"

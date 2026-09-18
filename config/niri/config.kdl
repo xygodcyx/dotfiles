@@ -367,7 +367,7 @@ window-rule {
     //剪掉圆角外的窗口内容
     clip-to-geometry true
     //透明度
-    opacity 0.97
+    opacity 0.78
     //禁止边框画到窗口后面
     draw-border-with-background false
 }
@@ -412,7 +412,7 @@ layer-rule {
     match namespace="^launcher$"
     geometry-corner-radius 8
     background-effect {
-        xray false
+        xray true
         blur true
     }
 }
@@ -421,6 +421,7 @@ layer-rule {
 window-rule {
     match app-id="mpv"
     match app-id="steam_app_default"
+    match app-id="zen"
     opacity 1.0
 }
 
