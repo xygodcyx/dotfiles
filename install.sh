@@ -8,6 +8,8 @@ ln -sf ~/dotfiles/config/sunsetr ~/.config/sunsetr
 ln -sf ~/dotfiles/config/ghostty ~/.config/ghostty
 ln -sf ~/dotfiles/config/zellij ~/.config/zellij
 ln -sf ~/dotfiles/config/fuzzel ~/.config/fuzzel
+ln -sf ~/dotfiles/config/mako ~/.config/mako
+ln -sf ~/dotfiles/config/matugen ~/.config/matugen
 
 ln -sf ~/dotfiles/home/.zshrc ~/.zshrc
 ln -sf ~/dotfiles/home/.gitconfig ~/.gitconfig

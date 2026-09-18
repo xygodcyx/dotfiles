@@ -1,0 +1,39 @@
+# ════════════════════════════════════════════════════════════════════
+#  mako 通知主题 · 由 matugen 根据壁纸配色生成
+#  模板：~/.config/matugen/templates/mako.conf     请勿直接修改本文件
+# ════════════════════════════════════════════════════════════════════
+
+font=JetBrainsMono Nerd Font Propo 10
+background-color=#2a292fF2
+text-color=#e4e1e9
+border-size=2
+border-color=#c1c1ff80
+border-radius=14
+padding=14,16
+margin=10
+outer-margin=16
+width=380
+height=240
+max-visible=5
+anchor=top-left
+layer=overlay
+default-timeout=8000
+icons=1
+max-icon-size=36
+icon-border-radius=9
+icon-location=left
+markup=1
+actions=1
+progress-color=over #c1c1ff
+group-by=app-name
+format=<b>%s</b>\n<span size="small" alpha="45875">%a</span>\n\n%b
+
+[urgency=low]
+border-color=#47464f
+default-timeout=5000
+
+[urgency=critical]
+background-color=#93000aF2
+text-color=#ffdad6
+border-color=#ffb4ab
+default-timeout=0

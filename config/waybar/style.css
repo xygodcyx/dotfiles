@@ -1,219 +1,240 @@
 @import "colors.css";
 
-/* ===== 全局重置 ===== */
+/* ══════════════════════════════════════════════════════════════════
+   waybar 主题 · 透明底栏 + 功能分组胶囊（Matugen / Material You 配色）
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 全局重置 ─────────────────────────────────────────────────── */
 * {
   border: none;
-  border-radius: 2px;
-  /* 极小圆角，现代感 */
-  font-family: "JetBrains Mono", "Noto Sans", sans-serif;
-  font-size: 13px;
+  border-radius: 0;
   min-height: 0;
-}
-
-/* ===== 主窗口 ===== */
-window#waybar {
-  background: @surface;
-  /* 深色背景 */
-  color: @on_surface;
-  border-bottom: 1px solid @outline_variant;
-  /* 仅底部细线，增加层次 */
-}
-
-/* ===== 工具提示 ===== */
-tooltip {
-  background: @surface_container;
-  border: 1px solid @outline;
-  padding: 4px 8px;
-  box-shadow: 6px 6px 4px 1px @surface;
-}
-
-tooltip label {
-  color: @on_surface;
-  font-size: 0.9em;
-}
-
-/* ===== 所有模块通用 ===== */
-#workspaces,
-#mpris,
-#custom-cava,
-#custom-screenshot,
-#custom-wfrec,
-#custom-actions,
-#custom-clipboard,
-#custom-wallpapers,
-#custom-colorpicker,
-#window,
-#custom-applauncher,
-#custom-separator,
-.niri-taskbar,
-#custom-updates,
-#tray,
-#custom-ddcutil-day,
-#custom-ddcutil-night,
-#custom-ddcutil-sleep,
-#backlight,
-#backlight-slider,
-#pulseaudio,
-#pulseaudio-slider,
-#network,
-#bluetooth,
-#idle_inhibitor,
-#battery,
-#power-profiles-daemon,
-#clock,
-#custom-wlogout,
-#custom-reboot,
-#custom-lockscreen,
-#custom-logout {
-  padding: 0 8px;
-  margin: 0 2px;
-  background: transparent;
-  /* 模块背景透明，依赖waybar背景 */
-}
-
-#custom-applauncher {
-  padding: 8px;
-  margin: 8px;
-}
-
-/* ===== Workspaces ===== */
-#workspaces {}
-
-#workspaces button {
-  padding: 0 4px;
-  margin: 2px;
-  color: @on_surface_variant;
-  background: transparent;
-}
-
-#workspaces button.active {
-  color: @primary;
-  border-color: @primary;
-}
-
-#workspaces button:hover {
-  background: @surface_container;
-}
-
-/* ===== 窗口标题 ===== */
-#window {
-  padding: 0 12px;
-  color: @on_surface;
+  font-family: "JetBrainsMono Nerd Font Mono", "Source Han Sans CN", "Noto Sans", sans-serif;
+  font-size: 12px;
   font-weight: 500;
 }
 
-/* ===== 自定义应用启动器 ===== */
-#custom-applauncher {
-  font-size: 1.2em;
-  color: @primary;
-  padding: 0 8px 0 12px;
+/* ── 底栏：完全透明，只有分组的胶囊有背景 ─────────────────────── */
+window#waybar {
+  background: transparent;
+  color: @on_surface;
+  padding: 0 10px; /* 左右留白 */
 }
 
-/* ===== 分隔符 ===== */
-#custom-separator {
-  color: @outline_variant;
+/* ── 分组胶囊 ─────────────────────────────────────────────────── */
+#ws,
+#weather,
+#apps,
+#focus,
+#connectivity,
+#media,
+#hardware,
+#updates,
+#power {
+  background: alpha(@surface_container, 0.92);
+  border: 1px solid alpha(@outline_variant, 0.40);
+  border-radius: 12px;
+  margin: 4px 2px;
+  padding: 0 6px;
+}
+
+/* ── 工作区 ───────────────────────────────────────────────────── */
+#workspaces {
+  padding: 0 2px;
+}
+
+#workspaces button {
+  background: transparent;
+  color: @on_surface_variant;
+  border-radius: 8px;
   padding: 0 4px;
+  margin: 0 1px;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
-/* ===== 系统托盘 ===== */
-#tray {
-  padding: 0;
+#workspaces button.focused,
+#workspaces button.active {
+  color: @primary;
 }
 
-/* ===== 状态模块 ===== */
+#workspaces button.empty {
+  color: alpha(@on_surface_variant, 0.35);
+}
+
+#workspaces button.urgent {
+  color: @error;
+}
+
+#workspaces button:hover {
+  background: alpha(@on_surface, 0.08);
+  color: @on_surface;
+}
+
+/* ── 天气 + 日期时间 ──────────────────────────────────────────── */
+#custom-weather {
+  color: @on_surface;
+  padding: 0 8px 0 4px;
+}
+
+#custom-clock {
+  color: @on_surface_variant;
+  padding: 0 4px 0 8px;
+}
+
+/* ── 打开的应用（niri-taskbar） ───────────────────────────────── */
+.niri-taskbar {
+  padding: 0 2px;
+}
+
+.niri-taskbar button {
+  background: transparent;
+  border-radius: 7px;
+  padding: 4px 3px; /* 图标约 16px，紧凑一致 */
+  margin: 1px 2px;
+}
+
+.niri-taskbar button.focused {
+  background: alpha(@primary, 0.20);
+}
+
+.niri-taskbar button.urgent {
+  background: alpha(@error, 0.30);
+}
+
+.niri-taskbar button:hover {
+  background: alpha(@on_surface, 0.10);
+}
+
+/* 多窗口时的数字角标：当前窗口序号 / 窗口总数 */
+.niri-taskbar .badge {
+  font-size: 7px;
+  font-weight: 700;
+  color: @on_primary;
+  background: @primary;
+  border-radius: 5px;
+  padding: 0 2px;
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── 当前聚焦的窗口 ───────────────────────────────────────────── */
+#custom-window {
+  color: @on_surface;
+  font-weight: 600;
+  padding: 0 12px;
+}
+
+/* ── 网络 / 蓝牙 / 亮度 / 音量 / 电池 / CPU / 温度 ────────────── */
 #network,
 #bluetooth,
-#pulseaudio,
 #backlight,
-#battery,
-#clock,
-#idle_inhibitor,
-#power-profiles-daemon {
-  padding: 0 8px;
-}
-
-#network,
-#bluetooth {
-  color: @on_surface_variant;
-}
-
 #pulseaudio,
-#backlight {
+#battery,
+#custom-cpu,
+#temperature {
   color: @on_surface_variant;
+  padding: 0 7px;
+  transition: color 150ms ease;
 }
 
-#battery {
-  color: @on_surface_variant;
+#bluetooth.connected {
+  color: @primary;
+}
+
+#pulseaudio.muted {
+  color: alpha(@on_surface_variant, 0.45);
+}
+
+#battery.charging {
+  color: @primary;
+}
+
+#battery.warning:not(.charging) {
+  color: @tertiary;
 }
 
 #battery.critical:not(.charging) {
   color: @error;
 }
 
-#clock {
-  color: @on_surface;
-  font-weight: 500;
+#temperature.warning {
+  color: @tertiary;
 }
 
-/* ===== 音量/亮度滑块（极简） ===== */
-#pulseaudio-slider,
-#backlight-slider {
-  padding: 0 4px;
-}
-
-#pulseaudio-slider trough,
-#backlight-slider trough {
-  background: @surface_container_high;
-  border-radius: 2px;
-  min-height: 4px;
-  min-width: 60px;
-}
-
-#pulseaudio-slider highlight,
-#backlight-slider highlight {
-  background: @primary;
-  border-radius: 2px;
-}
-
-#pulseaudio-slider slider,
-#backlight-slider slider {
-  all: unset;
-  background: @surface;
-  border: 1px solid @outline;
-  border-radius: 2px;
-  min-width: 10px;
-  min-height: 10px;
-  margin: -4px 0;
-}
-
-/* ===== 电源按钮 ===== */
-#custom-reboot,
-#custom-lockscreen,
-#custom-logout,
-#custom-wlogout {
-  padding: 0 6px;
-  color: @on_surface_variant;
-}
-
-#custom-wlogout:hover,
-#custom-reboot:hover,
-#custom-lockscreen:hover,
-#custom-logout:hover {
+#temperature.critical {
   color: @error;
 }
 
+#custom-cpu.high {
+  color: @error;
+}
+
+/* ── 系统更新 ─────────────────────────────────────────────────── */
 #custom-updates {
-  color: @primary;
+  color: @on_surface_variant;
+  padding: 0 7px;
+  transition: color 150ms ease;
 }
 
-#power-profiles-daemon.performance {
+#custom-updates.updated {
+  color: alpha(@on_surface_variant, 0.45);
+}
+
+#custom-updates.critical {
   color: @error;
 }
 
-#power-profiles-daemon.power-saver {
-  color: #8fbc8f;
+#custom-updates:hover {
+  color: @primary;
 }
 
-#idle_inhibitor.activated {
+#custom-weather:hover,
+#custom-clock:hover,
+#network:hover,
+#bluetooth:hover,
+#backlight:hover,
+#pulseaudio:hover,
+#battery:hover,
+#custom-cpu:hover,
+#temperature:hover {
   color: @primary;
+}
+
+/* ── 电源按钮 ─────────────────────────────────────────────────── */
+#custom-lock,
+#custom-suspend,
+#custom-logout,
+#custom-reboot,
+#custom-shutdown {
+  color: @on_surface_variant;
+  padding: 0 6px;
+  transition: color 150ms ease;
+}
+
+#custom-lock:hover,
+#custom-suspend:hover,
+#custom-logout:hover {
+  color: @primary;
+}
+
+#custom-reboot:hover {
+  color: @tertiary;
+}
+
+#custom-shutdown:hover {
+  color: @error;
+}
+
+/* ── 工具提示 ─────────────────────────────────────────────────── */
+tooltip {
+  background: alpha(@surface_container_high, 0.98);
+  border: 1px solid @outline_variant;
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+tooltip label {
+  color: @on_surface;
+  font-size: 11px;
 }

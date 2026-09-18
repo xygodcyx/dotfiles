@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# 检查蓝牙的 rfkill 状态
-# 'rfkill list bluetooth' 会输出蓝牙设备的信息
-# 'grep -q "Soft blocked: yes"' 在输出中安静地 (-q) 查找 "Soft blocked: yes" 字符串
+# ════════════════════════════════════════════════════════════════════
+#  蓝牙开关（waybar 蓝牙模块右键调用）
+# ════════════════════════════════════════════════════════════════════
+set -Eeuo pipefail
+
+notify() {
+  command -v notify-send >/dev/null 2>&1 && notify-send -a waybar -i bluetooth "$@" || true
+}
+
 if rfkill list bluetooth | grep -q "Soft blocked: yes"; then
-  # 如果找到了 "Soft blocked: yes" (说明蓝牙被软屏蔽了)
-  # 则执行 unblock 命令来解锁
   rfkill unblock bluetooth
-  # (可选) 发送一个通知，提供操作反馈
+  notify "蓝牙" "已开启蓝牙"
 else
-  # 如果没有找到 "Soft blocked: yes" (说明蓝牙是开启的)
-  # 则执行 block 命令来屏蔽
   rfkill block bluetooth
-  # (可选) 发送通知
+  notify "蓝牙" "已关闭蓝牙"
 fi

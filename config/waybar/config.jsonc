@@ -4,36 +4,22 @@
   ],
   "layer": "top",
   "position": "top",
-  "height": 32,
+  "height": 34,
   "fixed-center": true,
   "reload_style_on_change": true,
   "modules-left": [
-    "niri/workspaces",
-    "custom/cava",
-    "mpris",
-    "custom/screenshot",
-    // "custom/wfrec",
-    // "custom/wallpapers",
-    "custom/clipboard",
-    "custom/colorpicker",
-    "niri/window",
-    // "wlr/taskbar",
-    "tray",
-    "custom/updates"
+    "group/ws",
+    "group/weather",
+    "group/apps"
   ],
   "modules-center": [
-    "custom/applauncher"
-    //"custom/separator#2",
+    "group/focus"
   ],
   "modules-right": [
-    // "cffi/niri-taskbar", //需要安装waybar-niri-taskbar-git
-    "group/ddcutil",
-    "group/audio",
-    "bluetooth",
-    "network",
-    "battery",
-    "power-profiles-daemon",
-    "clock",
-    "group/powermenu"
+    "group/connectivity",
+    "group/media",
+    "group/hardware",
+    "group/updates",
+    "group/power"
   ]
 }

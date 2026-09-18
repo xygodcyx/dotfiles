@@ -328,4 +328,30 @@ return {
 		"SunnyTamang/select-undo.nvim",
 		opts = {},
 	},
+	{
+		"terryma/vim-expand-region",
+		event = "VeryLazy", -- 延迟加载，不影响启动速度
+
+		keys = {
+			{ "-", "<Plug>(expand_region_shrink)", mode = { "n", "x" }, desc = "缩小选区" },
+			{ "=", "<Plug>(expand_region_expand)", mode = { "n", "x" }, desc = "扩大选区" },
+		},
+		init = function()
+			vim.g.expand_region_use_default_mappings = 0
+			vim.g.expand_region_text_objects = {
+				["iw"] = 0,
+				["iW"] = 0,
+				['i"'] = 0,
+				["i'"] = 0,
+				["i]"] = 1,
+				["ib"] = 1,
+				["iB"] = 1,
+				["ii"] = 0, -- 缩进块内部
+				["ai"] = 0, -- 缩进块周围
+				["il"] = 0,
+				["ip"] = 0,
+			} -- 这里可以设置 g:expand_region_text_objects 等全局变量
+			-- 具体配置见下方“自定义扩展层级”
+		end,
+	},
 }

@@ -29,6 +29,7 @@ esac
 # pnpm end
 
 export PATH="$HOME/Hardware/Esp/xtensa-esp32-elf/bin:$PATH"
+export PATH="$HOME/Apps/Weport-1.0.0-x64:$PATH"
 
 #alias
 
