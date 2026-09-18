@@ -295,6 +295,7 @@ layout {
 // See the binds section below for more spawn examples.
 
 // This line starts waybar, a commonly used bar for Wayland compositors.
+spawn-at-startup "xrdb" "-merge" ".Xresources"
 spawn-at-startup "awww-daemon"
 spawn-sh-at-startup "awww-daemon -n overview"
 spawn-at-startup "vicinae" "server"
@@ -369,6 +370,18 @@ window-rule {
     opacity 0.97
     //禁止边框画到窗口后面
     draw-border-with-background false
+}
+
+// 让 Steam 主窗口别全屏，避免菜单错位
+window-rule {
+    match app-id=r#"^steam$"# title=r#"^Steam$"#
+    open-fullscreen false
+}
+
+// 关键：让 Steam 的弹窗变成浮动窗口，阻止它被合成器“抢焦点”而消失
+window-rule {
+    match app-id=r#"^steam$"# title=r#"^(Steam - News|Special Offers|notificationtoasts|.*popup.*)"#
+    open-floating true
 }
 
 // --- NIRI BLUR START ---

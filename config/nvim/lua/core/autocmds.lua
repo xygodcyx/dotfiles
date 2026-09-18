@@ -5,7 +5,6 @@
 -- 	end,
 -- })
 
-
 -- 在 LSP 配置的 on_attach 回调中绑定
 -- vim.api.nvim_create_autocmd("LspAttach", {
 -- 	callback = function(event)
@@ -79,3 +78,15 @@ vim.api.nvim_create_autocmd("BufReadPost", {
 		end
 	end,
 })
+
+vim.api.nvim_create_user_command("SnipList", function()
+	local res = vim.inspect(require("luasnip").available())
+	vim.api.nvim_command("botright vnew")
+	local buf = vim.api.nvim_get_current_buf()
+	vim.api.nvim_buf_set_name(buf, "SnipList")
+	vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+	vim.api.nvim_buf_set_option(buf, "modifiable", true)
+	vim.api.nvim_buf_set_option(buf, "filetype", "lua")
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(res, "\n"))
+	vim.api.nvim_buf_set_option(buf, "modifiable", false)
+end, {})

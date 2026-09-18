@@ -46,11 +46,9 @@ return {
 			"williamboman/mason.nvim",
 		},
 		opts = function()
+			local capabilities = require("cmp_nvim_lsp").default_capabilities()
 			local mason_registry = require("mason-registry")
 			-- 确保 vue-language-server 已经安装，否则 get_install_path 会报错
-			if not mason_registry.is_installed("vue-language-server") then
-				return opts
-			end
 
 			local vue_lsp_path = mason_registry.get_package("vue-language-server"):get_install_path()
 			local vue_typescript_plugin_path = vue_lsp_path .. "/node_modules/@vue/language-server"
@@ -58,6 +56,7 @@ return {
 			return {
 				servers = {
 					clangd = {
+						capabilities = capabilities, -- 关键！把 cmp 的能力声明传给 clangd
 						cmd = {
 							"clangd",
 							"--background-index",
@@ -78,10 +77,20 @@ return {
 					lua_ls = {
 						settings = {
 							Lua = {
-								diagnostics = { globals = { "vim" } },
+								runtime = {
+									version = "LuaJIT", -- 如果你用 Neovim/OpenResty，用 LuaJIT；纯 Lua 改成 "Lua 5.4"
+								},
+								diagnostics = {
+									globals = { "vim" }, -- Neovim 配置必备，避免把 vim 当成未定义全局变量
+									enable = true, -- 打开所有诊断
+									unusedLocalExclude = { "_*" }, -- 排除下划线开头的未使用变量
+								},
 								workspace = {
-									checkThirdParty = "Apply",
-									library = { os.getenv("HOME") .. "/.local/share/LuaAddons" },
+									checkThirdParty = false,
+									library = {
+										os.getenv("HOME") .. "/.local/share/LuaAddons",
+										vim.env.VIMRUNTIME,
+									},
 								},
 								telemetry = { enable = false },
 							},

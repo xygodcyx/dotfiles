@@ -28,6 +28,8 @@ case ":$PATH:" in
 esac
 # pnpm end
 
+export PATH="$HOME/Hardware/Esp/xtensa-esp32-elf/bin:$PATH"
+
 #alias
 
 alias cr="cargo run"
@@ -36,5 +38,9 @@ alias cb="cargo build"
 alias cbr="cargo build --release"
 alias e="exit"
 alias n="nvim"
+alias m="make"
 
 eval "$(direnv hook zsh)"
+
+#bind
+# bindkey '^ ' autosuggest-accept

@@ -21,15 +21,62 @@ return {
 					type = "codelldb",
 					request = "launch",
 					program = function()
-						return vim.fn.input("可执行文件路径: ", vim.fn.getcwd() .. "/", "file")
+						local cwd = vim.fn.getcwd()
+						local cache_file = vim.fn.stdpath("cache") .. "/dap_" .. vim.fn.sha256(cwd):sub(1, 8) .. ".txt"
+						local last = ""
+						local f = io.open(cache_file, "r")
+						if f then
+							last = f:read("*l") or ""
+							f:close()
+						end
+
+						local default = last ~= "" and last or (vim.fn.getcwd() .. "/")
+						local input = vim.fn.input("可执行文件路径: ", default, "file")
+						if input == "" then
+							return default
+						end
+
+						-- 写回缓存
+						local w = io.open(cache_file, "w")
+						if w then
+							w:write(input)
+							w:close()
+						end
+
+						return input
 					end,
 					cwd = "${workspaceFolder}",
 					stopOnEntry = false,
-					console = "internalConsole",
+					console = "integratedTerminal",
 				},
 			}
 			dap.configurations.cpp = cpp_configs
 			dap.configurations.c = cpp_configs
+
+			-- Lua 调试配置
+			local lua_configs = {
+				{
+					name = "启动 Lua 脚本 (local-lua-debugger)",
+					type = "local-lua-debugger",
+					request = "launch",
+					program = function()
+						return vim.fn.input("Lua 脚本路径: ", vim.fn.getcwd() .. "/", "file")
+					end,
+					cwd = "${workspaceFolder}",
+					stopOnEntry = false,
+				},
+			}
+
+			dap.adapters["local-lua-debugger"] = {
+				type = "executable",
+				command = "node",
+				args = {
+					vim.fn.stdpath("data")
+						.. "/lazy/../mason/packages/local-lua-debugger-vscode/extension/extension/debugAdapter.js",
+				},
+			}
+
+			dap.configurations.lua = lua_configs
 
 			-- 调试 UI
 			local dapui = require("dapui")

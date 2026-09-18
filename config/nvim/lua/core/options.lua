@@ -33,7 +33,7 @@ opt.tabstop = 4
 opt.shiftwidth = 4
 opt.expandtab = true
 opt.autoindent = true
-opt.colorcolumn = "100"
+opt.colorcolumn = "80"
 opt.clipboard = "unnamedplus"
 
 opt.foldmethod = "expr"

@@ -1,2 +1,9 @@
-
 theme = dark:Catppuccin Frappe,light:Catppuccin Latte
+keybind = ctrl+shift+n=ignore
+keybind = ctrl+m=ignore
+keybind = ctrl+shift+t=new_window
+# 设置字体大小，13.5 这种非整数也支持[reference:4]
+font-size = 14
+
+# 设置字体家族，例如 JetBrains Mono
+font-family = "JetBrains Mono"

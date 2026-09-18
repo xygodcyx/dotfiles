@@ -1,6 +1,13 @@
 -- lua/plugins/ui.lua
 return {
 	{
+		"stevearc/oil.nvim",
+		dependencies = { "nvim-tree/nvim-web-devicons" },
+		config = function()
+			require("oil").setup()
+		end,
+	},
+	{
 		"mei28/luminate.nvim",
 		event = "VeryLazy",
 		config = function()
@@ -13,18 +20,22 @@ return {
 		"stevearc/dressing.nvim",
 		opts = {},
 	},
-	{ "folke/which-key.nvim", event = "VeryLazy", opts = {
-		preset = "helix",
-spec = {
-      { "<leader>d", group = "调试" },      -- 把 +debug 改成 +调试
-      { "<leader>f", group = "文件" },
-      { "<leader>g", group = "Git" },
-      { "<leader>s", group = "搜索" },
-      { "<leader>u", group = "界面" },
-      { "<leader>x", group = "诊断" },
-      { "<leader>c", group = "代码操作" },
-    }
-	} },
+	{
+		"folke/which-key.nvim",
+		event = "VeryLazy",
+		opts = {
+			preset = "helix",
+			spec = {
+				{ "<leader>d", group = "调试" }, -- 把 +debug 改成 +调试
+				{ "<leader>f", group = "文件" },
+				{ "<leader>g", group = "Git" },
+				{ "<leader>s", group = "搜索" },
+				{ "<leader>u", group = "界面" },
+				{ "<leader>x", group = "诊断" },
+				{ "<leader>c", group = "代码操作" },
+			},
+		},
+	},
 	-- 状态栏
 	{
 		"nvim-lualine/lualine.nvim",
@@ -52,27 +63,27 @@ spec = {
 	},
 
 	-- 文件树
-	{
-		"nvim-tree/nvim-tree.lua",
-		dependencies = { "nvim-tree/nvim-web-devicons" },
-		config = function()
-			require("nvim-tree").setup({
-				sort_by = "case_sensitive",
-				view = {
-					width = 30,
-					side = "left",
-				},
-				renderer = {
-					group_empty = true,
-				},
-				hijack_directories = {
-					enable = true, -- 启用目录劫持
-					auto_open = false,
-				},
-			})
-			vim.keymap.set("n", "<leader>e", ":NvimTreeToggle<CR>", { desc = "Toggle File Tree" })
-		end,
-	},
+	-- {
+	-- 	"nvim-tree/nvim-tree.lua",
+	-- 	dependencies = { "nvim-tree/nvim-web-devicons" },
+	-- 	config = function()
+	-- 		require("nvim-tree").setup({
+	-- 			sort_by = "case_sensitive",
+	-- 			view = {
+	-- 				width = 30,
+	-- 				side = "left",
+	-- 			},
+	-- 			renderer = {
+	-- 				group_empty = true,
+	-- 			},
+	-- 			hijack_directories = {
+	-- 				enable = true, -- 启用目录劫持
+	-- 				auto_open = false,
+	-- 			},
+	-- 		})
+	-- 		vim.keymap.set("n", "<leader>e", ":NvimTreeToggle<CR>", { desc = "Toggle File Tree" })
+	-- 	end,
+	-- },
 
 	-- 标签栏
 	-- {
