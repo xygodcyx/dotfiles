@@ -8,6 +8,12 @@
 #        1. 支持用 ~/.config/waybar/icons/<app_id>.{png,svg} 覆盖应用图标
 #        2. 支持 group_by_app_id（同一应用只显示一个图标，点击在窗口间轮换）
 #        3. 支持 max_buttons（限制显示的图标数量，以聚焦窗口为中心动态切换）
+#        4. 支持 empty_icon（没有任何窗口时显示的占位图标）
+#        5. 支持 right_click_command（右键窗口按钮打开菜单脚本）
+#        6. 内置系统托盘：StatusNotifierItem 宿主 + DBusMenu 右键菜单
+#           （托盘图标和任务栏在同一个模块里，不再需要 waybar 的 tray 模块）
+#           相关配置：tray_icon_size、show_passive_items
+#           依赖：libdbusmenu-gtk3（waybar 本来就依赖它）
 #
 #  用法：build-niri-taskbar.sh
 #  产物：~/.local/lib/waybar/libniri_taskbar.so（构建完重启 waybar）
@@ -36,6 +42,14 @@ if ! git -C "$SRC" fetch -qf origin pull/34/head:pr34 2>/dev/null; then
 fi
 
 git -C "$SRC" checkout -qf pr34 2>/dev/null || git -C "$SRC" checkout -qf main
+
+# 先试应用补丁，失败时给出清晰提示（不会影响已安装的 .so）
+if ! git -C "$SRC" apply --check "$PATCH" 2>/dev/null; then
+  echo "错误：本地补丁无法应用到当前上游代码（上游可能改了相同文件）。" >&2
+  echo "      补丁文件：$PATCH" >&2
+  echo "      已安装的 .so 保持不变：$DEST" >&2
+  exit 1
+fi
 git -C "$SRC" apply "$PATCH"
 
 echo "==> 编译 niri-taskbar ..."

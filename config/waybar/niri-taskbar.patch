@@ -1,5 +1,5 @@
 diff --git a/src/button.rs b/src/button.rs
-index 87430da..067c429 100644
+index 87430da..e80147c 100644
 --- a/src/button.rs
 +++ b/src/button.rs
 @@ -1,19 +1,36 @@
@@ -56,7 +56,7 @@ index 87430da..067c429 100644
          let state = state.clone();
  
          // Set up the basic image button.
-@@ -64,24 +81,61 @@ impl Button {
+@@ -64,24 +81,62 @@ impl Button {
                  .add_provider(provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
          });
  
@@ -92,6 +92,7 @@ index 87430da..067c429 100644
          // Set up our event handlers. It's easier to do this with self already available.
 -        button.connect_click_handler(window.id);
 +        button.connect_click_handler();
++        button.connect_right_click_handler();
          button.connect_size_allocate(icon_path);
  
          button
@@ -124,7 +125,7 @@ index 87430da..067c429 100644
      /// Sets whether the window represented by this button is currently focused.
      #[tracing::instrument(level = "TRACE")]
      pub fn set_focus(&self, focus: bool) {
-@@ -127,17 +181,39 @@ impl Button {
+@@ -127,24 +182,89 @@ impl Button {
          self.button.style_context().add_class("urgent");
      }
  
@@ -170,7 +171,59 @@ index 87430da..067c429 100644
              }
          });
      }
-@@ -236,6 +312,8 @@ impl Button {
+ 
++    /// 右键：调用配置的命令（默认是任务栏菜单脚本），窗口 id 作为参数。
++    fn connect_right_click_handler(&self) {
++        let state = self.state.clone();
++        let targets = self.targets.clone();
++
++        self.button.connect_button_press_event(move |_, event| {
++            if event.button() != 3 {
++                return gtk::glib::Propagation::Proceed;
++            }
++
++            let command = state.config().right_click_command().trim().to_string();
++            if command.is_empty() {
++                return gtk::glib::Propagation::Proceed;
++            }
++
++            // 支持以 ~/ 开头的路径
++            let command = match command.strip_prefix("~/") {
++                Some(rest) => match std::env::var("HOME") {
++                    Ok(home) => format!("{home}/{rest}"),
++                    Err(_) => command,
++                },
++                None => command,
++            };
++
++            let ids: Vec<u64> = targets.borrow().ids.clone();
++            if ids.is_empty() {
++                return gtk::glib::Propagation::Stop;
++            }
++
++            let args = ids
++                .iter()
++                .map(u64::to_string)
++                .collect::<Vec<_>>()
++                .join(" ");
++            let cmdline = format!("{command} {args}");
++
++            if let Err(e) = gtk::glib::spawn_command_line_async(cmdline.as_str()) {
++                tracing::warn!(%e, cmdline, "error spawning taskbar menu");
++            }
++
++            gtk::glib::Propagation::Stop
++        });
++    }
++
+     #[tracing::instrument(level = "TRACE")]
+-    fn connect_size_allocate(&self, icon_path: Option<PathBuf>) {
+-        let last_size = RefCell::new(None);
++    fn connect_size_allocate(&self, icon_path: Option<PathBuf>) {        let last_size = RefCell::new(None);
+ 
+         self.button
+             .connect_size_allocate(move |button, allocation| {
+@@ -236,6 +356,8 @@ impl Button {
                      let button = button.clone();
                      gtk::glib::source::idle_add_local_once(move || {
                          button.set_image(Some(&image));
@@ -180,10 +233,10 @@ index 87430da..067c429 100644
                  }
              });
 diff --git a/src/config.rs b/src/config.rs
-index 8041cce..7cb3cc2 100644
+index 8041cce..8ad4641 100644
 --- a/src/config.rs
 +++ b/src/config.rs
-@@ -13,6 +13,12 @@ pub struct Config {
+@@ -13,6 +13,24 @@ pub struct Config {
      notifications: Notifications,
      #[serde(default)]
      show_all_outputs: bool,
@@ -193,10 +246,22 @@ index 8041cce..7cb3cc2 100644
 +    /// 最多同时显示的按钮数量；0 表示不限制。
 +    #[serde(default)]
 +    max_buttons: usize,
++    /// 没有任何窗口时显示的占位图标（Nerd Font 文字图标）。
++    #[serde(default)]
++    empty_icon: String,
++    /// 右键点击应用图标时执行的命令（窗口 id 作为参数追加）。
++    #[serde(default)]
++    right_click_command: String,
++    /// 内置托盘图标大小（逻辑像素；0 表示默认 16）。
++    #[serde(default)]
++    tray_icon_size: u32,
++    /// 是否显示 Passive 状态的托盘项。
++    #[serde(default)]
++    show_passive_items: bool,
  }
  
  #[derive(Debug, Deserialize)]
-@@ -99,6 +105,14 @@ impl Config {
+@@ -99,6 +117,30 @@ impl Config {
      pub fn show_all_outputs(&self) -> bool {
          self.show_all_outputs
      }
@@ -207,6 +272,22 @@ index 8041cce..7cb3cc2 100644
 +
 +    pub fn max_buttons(&self) -> usize {
 +        self.max_buttons
++    }
++
++    pub fn empty_icon(&self) -> &str {
++        &self.empty_icon
++    }
++
++    pub fn right_click_command(&self) -> &str {
++        &self.right_click_command
++    }
++
++    pub fn tray_icon_size(&self) -> u32 {
++        self.tray_icon_size
++    }
++
++    pub fn show_passive_items(&self) -> bool {
++        self.show_passive_items
 +    }
  }
  
@@ -251,7 +332,7 @@ index 7e4858e..a7468cf 100644
      if let Some(path) = freedesktop_icons::lookup(id).with_size(512).find() {
          return Some(path);
 diff --git a/src/lib.rs b/src/lib.rs
-index 67a7eb0..9b17187 100644
+index 67a7eb0..b72a2fa 100644
 --- a/src/lib.rs
 +++ b/src/lib.rs
 @@ -1,5 +1,5 @@
@@ -261,7 +342,63 @@ index 67a7eb0..9b17187 100644
      sync::{Arc, LazyLock, Mutex},
  };
  
-@@ -82,7 +82,10 @@ async fn init(info: &waybar_cffi::InitInfo, state: State) -> Result<(), Error> {
+@@ -18,7 +18,7 @@ use waybar_cffi::{
+     gtk::{
+         self, Orientation, gio,
+         glib::MainContext,
+-        traits::{BoxExt, ContainerExt, StyleContextExt, WidgetExt},
++        traits::{BoxExt, ContainerExt, LabelExt, StyleContextExt, WidgetExt},
+     },
+     waybar_module,
+ };
+@@ -32,6 +32,7 @@ mod notify;
+ mod output;
+ mod process;
+ mod state;
++mod tray;
+ 
+ static TRACING: LazyLock<()> = LazyLock::new(|| {
+     if let Err(e) = tracing_subscriber::fmt()
+@@ -68,36 +69,69 @@ waybar_module!(TaskbarModule);
+ 
+ #[tracing::instrument(level = "DEBUG", skip_all, err)]
+ async fn init(info: &waybar_cffi::InitInfo, state: State) -> Result<(), Error> {
+-    // Set up the box that we'll use to contain the actual window buttons.
++    // 外层容器：左边是窗口按钮（含空占位），右边是托盘项
+     let root = info.get_root_widget();
++    let root_box = gtk::Box::new(Orientation::Horizontal, 0);
++    root_box.style_context().add_class("niri-taskbar");
++
+     let container = gtk::Box::new(Orientation::Horizontal, 0);
+-    container.style_context().add_class("niri-taskbar");
+-    root.add(&container);
++    root_box.add(&container);
++
++    let tray_box = gtk::Box::new(Orientation::Horizontal, 0);
++    tray_box.style_context().add_class("niri-tray");
++    tray_box.set_visible(false);
++    root_box.add(&tray_box);
++
++    root.add(&root_box);
++
++    // 没有任何窗口时显示的占位图标
++    let placeholder = gtk::Label::new(None);
++    placeholder.style_context().add_class("empty-placeholder");
++    placeholder.set_tooltip_text(Some("没有打开的窗口"));
++    placeholder.set_no_show_all(true);
++    container.add(&placeholder);
+ 
+-    // We need to spawn a task to receive the window snapshots and update the container.
++    // 托盘：插件自己实现 StatusNotifierItem 宿主
++    let tray_state = state.clone();
+     let context = MainContext::default();
+-    context.spawn_local(async move { Instance::new(state, container).task().await });
++    context.spawn_local(async move { tray::Tray::new(tray_state, tray_box).task().await });
++
++    // 窗口按钮的更新任务
++    context.spawn_local(async move { Instance::new(state, container, placeholder).task().await });
+ 
+     Ok(())
  }
  
  struct Instance {
@@ -271,14 +408,20 @@ index 67a7eb0..9b17187 100644
 +    /// 窗口 id -> 分组 key（通知匹配用）。
 +    window_group: HashMap<u64, String>,
      container: gtk::Box,
++    /// 没有窗口时显示的占位图标。
++    placeholder: gtk::Label,
      last_snapshot: Option<Snapshot>,
      state: State,
-@@ -92,12 +95,19 @@ impl Instance {
-     pub fn new(state: State, container: gtk::Box) -> Self {
+ }
+ 
+ impl Instance {
+-    pub fn new(state: State, container: gtk::Box) -> Self {
++    pub fn new(state: State, container: gtk::Box, placeholder: gtk::Label) -> Self {
          Self {
              buttons: Default::default(),
 +            window_group: Default::default(),
              container,
++            placeholder,
              last_snapshot: None,
              state,
          }
@@ -293,7 +436,7 @@ index 67a7eb0..9b17187 100644
      pub async fn task(&mut self) {
          // We have to build the output filter here, because until the Glib event loop has run the
          // container hasn't been realised, which means we can't figure out which output we're on.
-@@ -231,7 +241,7 @@ impl Instance {
+@@ -231,7 +265,7 @@ impl Instance {
                      // If the window is already focused, there isn't really much
                      // to do.
                      if !window.is_focused {
@@ -302,7 +445,7 @@ index 67a7eb0..9b17187 100644
                              tracing::trace!(
                                  ?button,
                                  ?window,
-@@ -314,7 +324,7 @@ impl Instance {
+@@ -314,7 +348,7 @@ impl Instance {
              };
  
              if app_id == mapped {
@@ -311,7 +454,7 @@ index 67a7eb0..9b17187 100644
                      tracing::trace!(app_id, ?button, ?window, "toplevel match found via app ID");
                      button.set_urgent();
                      found = true;
-@@ -348,7 +358,7 @@ impl Instance {
+@@ -348,7 +382,7 @@ impl Instance {
  
          if !found {
              for id in fuzzy.into_iter() {
@@ -320,7 +463,7 @@ index 67a7eb0..9b17187 100644
                      button.set_urgent();
                  }
              }
-@@ -361,33 +371,147 @@ impl Instance {
+@@ -361,33 +395,147 @@ impl Instance {
          windows: Snapshot,
          filter: Arc<Mutex<output::Filter>>,
      ) {
@@ -397,16 +540,16 @@ index 67a7eb0..9b17187 100644
 +            if window.is_focused {
 +                group.focused = Some(window.id);
 +            }
-+
+ 
+-            // Ensure we don't remove this button from the container.
+-            omitted.remove(&window.id);
 +            let timestamp = window.focus_timestamp.map(|ts| (ts.secs, ts.nanos));
 +            if timestamp > group.primary_timestamp {
 +                group.primary_timestamp = timestamp;
 +                group.primary = window.id;
 +            }
 +        }
- 
--            // Ensure we don't remove this button from the container.
--            omitted.remove(&window.id);
++
 +        // 选择要显示的分组：以聚焦分组为中心，最多显示 max_buttons 个；
 +        // 聚焦分组靠近两端时向另一端贴齐（也就是用左右邻居窗口填充）。
 +        let max_buttons = self.state.config().max_buttons();
@@ -491,7 +634,7 @@ index 67a7eb0..9b17187 100644
  
              // Since we get the windows in order in the snapshot, we can just
              // push this to the back and then let other widgets push in front as
-@@ -395,16 +519,13 @@ impl Instance {
+@@ -395,15 +543,27 @@ impl Instance {
              self.container.reorder_child(button.widget(), -1);
          }
  
@@ -508,11 +651,24 @@ index 67a7eb0..9b17187 100644
  
 -        // Ensure everything is rendered.
 -        self.container.show_all();
--
++        // 没有任何可见应用时显示占位图标
++        if shown.is_empty() {
++            let icon = self.state.config().empty_icon();
++            if icon.is_empty() {
++                self.placeholder.hide();
++            } else {
++                if self.placeholder.text().as_str() != icon {
++                    self.placeholder.set_text(icon);
++                }
++                self.placeholder.show();
++            }
++        } else {
++            self.placeholder.hide();
++        }
+ 
          // Update the last snapshot.
          self.last_snapshot = Some(windows);
-     }
-@@ -428,3 +549,49 @@ impl<'a> PidWindowMap<'a> {
+@@ -428,3 +588,49 @@ impl<'a> PidWindowMap<'a> {
          self.0.get(&pid).copied()
      }
  }

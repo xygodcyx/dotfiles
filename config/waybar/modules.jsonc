@@ -39,7 +39,7 @@
     "on-click-right": "gnome-calendar",
   },
 
-  // ── 左侧：打开的应用（niri-taskbar） ────────────────────────────
+  // ── 左侧：打开的应用 + 托盘（都在 niri-taskbar 插件里） ─────────
   "group/apps": {
     "orientation": "inherit",
     "modules": ["cffi/niri-taskbar"],
@@ -50,9 +50,16 @@
     //   · 覆盖应用图标：把 <app_id>.png/svg 放进 ~/.config/waybar/icons/
     //   · group_by_app_id：同一应用的多个窗口只显示一个图标（点击在窗口间轮换）
     //   · max_buttons：最多显示几个图标，超出时以聚焦窗口为中心左右切换
+    //   · empty_icon：没有任何窗口时显示的占位图标
+    //   · right_click_command：右键应用图标时打开的菜单脚本
+    //   · tray_icon_size / show_passive_items：插件内置托盘
     "module_path": "/home/lyorn/.local/lib/waybar/libniri_taskbar.so",
     "group_by_app_id": true,
-    "max_buttons": 5,
+    "max_buttons": 3,
+    "empty_icon": "󰀻",
+    // "right_click_command": "~/.config/waybar/scripts/taskbar-menu.sh",
+    "tray_icon_size": 8,
+    "show_passive_items": true,
   },
 
   // ── 中间：当前聚焦的窗口 ────────────────────────────────────────
