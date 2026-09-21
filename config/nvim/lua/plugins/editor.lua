@@ -80,7 +80,11 @@ return {
 			vim.keymap.set("n", "K", "<cmd>Lspsaga hover_doc<CR>", { desc = "Hover Documentation" })
 
 			-- 预览定义
-			vim.keymap.set("n", "gd", "<cmd>Lspsaga peek_definition<CR>", { desc = "Peek Definition" })
+			vim.keymap.set("n", "gD", "<cmd>Lspsaga peek_definition<CR>", { desc = "Peek Definition" })
+
+			vim.keymap.set("n", "gd", function()
+				vim.lsp.buf.definition()
+			end, { desc = "Peek Definition" })
 
 			-- 预览类型定义
 			vim.keymap.set("n", "gt", "<cmd>Lspsaga peek_type_definition<CR>", { desc = "Peek Type Definition" })
@@ -353,5 +357,25 @@ return {
 			} -- 这里可以设置 g:expand_region_text_objects 等全局变量
 			-- 具体配置见下方“自定义扩展层级”
 		end,
+	},
+	{
+		"windwp/nvim-ts-autotag",
+		opts = {
+			filetypes = {
+				"html",
+				"javascript",
+				"typescript",
+				"javascriptreact",
+				"typescriptreact",
+				"vue",
+				"svelte",
+				"xml",
+			},
+			opts = {
+				enable_close = true,
+				enable_rename = true,
+				enable_close_on_slash = false,
+			},
+		},
 	},
 }

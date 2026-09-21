@@ -1,3 +1,18 @@
+# 1. 强制窗口以全屏模式启动
+fullscreen = false
+
+# 2. 启用内边距平衡
+# 这会让多出的空间在四周重新分配，避免全部堆积在底部
+window-padding-balance = true
+
+# 3. 将内边距颜色设置为 extend
+# 这会让内边距颜色与终端背景色一致，视觉上消除空隙感
+window-padding-color = extend
+
+# 4. 移除显式设置的内边距，避免干扰平衡逻辑
+window-padding-x = 0
+window-padding-y = 0
+
 theme = dark:Catppuccin Frappe,light:Catppuccin Latte
 keybind = ctrl+shift+n=ignore
 keybind = ctrl+m=ignore

@@ -9,6 +9,8 @@
 #   · AUR 更新用 paru/yay 的只读查询（-Qua，无 sudo、不编译）
 #   · Flatpak 用 flatpak remote-ls --updates
 #   · 结果缓存（默认 1 小时），flock 防并发，pacman 运行时跳过检查
+#   · VCS 包（-git/-svn/...）默认不检查（普通 -Syu 不会更新它们）；
+#     需要连 VCS 提交一起更新时：AUR_DEVEL=1 updates.sh --update
 #   · 更新前自动创建 snapper 快照，更新后把变更写入日志（grep pacman.log）
 #
 #  用法：
@@ -30,6 +32,7 @@ CACHE_TTL="${UPDATES_TTL:-3600}"   # 缓存有效期（秒）
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/waybar"
 LOG_FILE="$STATE_DIR/updates.log"  # 更新记录（含 pacman.log 的 grep 结果）
 PACMAN_LOG="${PACMAN_LOG:-/var/log/pacman.log}"
+PACMAN_LOCK="${PACMAN_LOCK:-/var/lib/pacman/db.lck}"
 
 SNAPPER_CONFIG="${SNAPPER_CONFIG:-root}"   # snapper 配置名
 AUR_HELPER="${AUR_HELPER:-yay}"            # 全量更新用的 AUR helper
@@ -64,9 +67,18 @@ check_repo() {
 
 check_aur() {
   local helper
-  for helper in paru yay; do
+  # 优先用和全量更新相同的 helper（AUR_HELPER，默认 yay），保证"检查到的 = 更新会做的"
+  for helper in "${AUR_HELPER:-yay}" paru yay; do
     if command -v "$helper" >/dev/null 2>&1; then
-      "$helper" -Qua 2>/dev/null || true
+      if [[ "${AUR_DEVEL:-0}" == "1" ]]; then
+        "$helper" -Qua 2>/dev/null || true
+      else
+        # paru 等会把 VCS 包（-git/-svn/...）报成 "→ latest-commit"，
+        # 这只是"可能有新提交"的提示；普通 -Syu 不会更新它们，
+        # 所以默认过滤掉，避免永远显示"有更新"。
+        # 想真正更新 VCS 提交：设置 AUR_DEVEL=1（会用 --devel 更新）
+        "$helper" -Qua 2>/dev/null | grep -v ' -> latest-commit$' || true
+      fi
       return 0
     fi
   done
@@ -86,7 +98,7 @@ last_upgrade() {
 
 refresh_cache() {
   # pacman 正在运行（数据库被锁）时不动缓存，等下一轮重试
-  if [[ -e /var/lib/pacman/db.lck ]]; then
+  if [[ -e "$PACMAN_LOCK" ]]; then
     return 1
   fi
 
@@ -142,13 +154,18 @@ cache_age() {
   echo "$(($(date +%s) - ts))"
 }
 
+# 返回 0 表示缓存可用（或本来就不需要刷新）；返回 1 表示刷新失败（例如 pacman 正在运行）
 ensure_cache() {
   local force="${1:-}"
   if [[ "$force" == "--force" ]]; then
     # 手动刷新：等锁，确保真的刷新成功（右键点击走这里）
-    LOCK_WAIT=60 with_lock refresh_cache || true
-  elif [[ ! -s "$CACHE_FILE" || "$(cache_age)" -gt "$CACHE_TTL" ]]; then
-    with_lock refresh_cache || true
+    LOCK_WAIT=60 with_lock refresh_cache
+  elif [[ ! -s "$CACHE_FILE" ]]; then
+    with_lock refresh_cache
+  elif [[ "$(cache_age)" -gt "$CACHE_TTL" ]]; then
+    with_lock refresh_cache
+  else
+    return 0
   fi
 }
 
@@ -322,8 +339,12 @@ do_update() {
   log_lines_before=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
 
   # 3. 全量更新（官方仓库 + AUR）
-  echo "  [3/6] $AUR_HELPER -Syu ..."
-  "$AUR_HELPER" -Syu || rc=$?
+  local devel_args=()
+  if [[ "${AUR_DEVEL:-0}" == "1" ]]; then
+    devel_args+=(--devel)
+  fi
+  echo "  [3/6] $AUR_HELPER -Syu ${devel_args[*]} ..."
+  "$AUR_HELPER" -Syu "${devel_args[@]}" || rc=$?
 
   # 4. Flatpak
   if [[ "$rc" -eq 0 ]] && command -v flatpak >/dev/null 2>&1; then
@@ -531,7 +552,7 @@ show_news() {
 }
 
 open_flow() {
-  ensure_cache
+  ensure_cache || true
   NEWS_CACHE=$(fetch_news_items)
   list_updates
 
@@ -720,7 +741,7 @@ list_updates() {
   orphans_n=$(pacman -Qtdq 2>/dev/null | grep -c . || true)
   [[ "${orphans_n:-0}" -gt 0 ]] && notes+=("有 $orphans_n 个孤立包（sudo pacman -Rns \$(pacman -Qtdq)）")
 
-  if [[ -e /var/lib/pacman/db.lck ]]; then
+  if [[ -e "$PACMAN_LOCK" ]]; then
     notes+=("pacman 正在运行，数据库被锁定，稍后再试")
   fi
 
@@ -753,13 +774,17 @@ case "${1:-}" in
     usage
     ;;
   --force)
-    ensure_cache --force
-    notify_check_result
+    if ensure_cache --force; then
+      notify_check_result
+    elif command -v notify-send >/dev/null 2>&1; then
+      notify-send -a waybar -i system-software-update "系统更新" \
+        "刷新失败（pacman 正在运行？），显示的是上次结果"
+    fi
     pkill -RTMIN+8 waybar 2>/dev/null || true
     render_waybar
     ;;
   --list)
-    ensure_cache
+    ensure_cache || true
     list_updates
     ;;
   --open)
@@ -773,7 +798,7 @@ case "${1:-}" in
     exec less +G "$LOG_FILE"
     ;;
   --update)
-    ensure_cache
+    ensure_cache || true
     do_update
     ;;
   *)

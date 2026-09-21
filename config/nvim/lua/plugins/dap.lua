@@ -3,8 +3,11 @@ return {
 		"mfussenegger/nvim-dap",
 		config = function()
 			local dap = require("dap")
+			-- 必须指定终端窗口打开方式，承载内置控制台
+			dap.defaults.fallback.switchbuf = "noop-if-visible,usetab,uselast"
+			dap.defaults.fallback.terminal_win_cmd = "tabnew | set filetype=dap-terminal"
 
-			-- codelldb 适配器
+			-- codelldb 适配器配置
 			dap.adapters.codelldb = {
 				type = "server",
 				port = "${port}",
@@ -12,12 +15,16 @@ return {
 					command = vim.fn.stdpath("data") .. "/mason/bin/codelldb",
 					args = { "--port", "${port}" },
 				},
+				expressions = {
+					native = true,
+				},
+				detached = false,
 			}
 
 			-- C 和 C++ 的调试配置
 			local cpp_configs = {
 				{
-					name = "启动 (codelldb)",
+					name = "codelldb",
 					type = "codelldb",
 					request = "launch",
 					program = function()
@@ -47,6 +54,7 @@ return {
 					end,
 					cwd = "${workspaceFolder}",
 					stopOnEntry = false,
+					-- 1. 必须启用这一行，确保输出可被系统事件捕捉
 					console = "integratedTerminal",
 				},
 			}
@@ -75,21 +83,7 @@ return {
 						.. "/lazy/../mason/packages/local-lua-debugger-vscode/extension/extension/debugAdapter.js",
 				},
 			}
-
 			dap.configurations.lua = lua_configs
-
-			-- 调试 UI
-			local dapui = require("dapui")
-			dapui.setup()
-			dap.listeners.after.event_initialized["dapui_config"] = function()
-				dapui.open()
-			end
-			dap.listeners.before.event_terminated["dapui_config"] = function()
-				dapui.close()
-			end
-			dap.listeners.before.event_exited["dapui_config"] = function()
-				dapui.close()
-			end
 		end,
 		keys = {
 			{
@@ -128,14 +122,14 @@ return {
 				desc = "步入",
 			},
 			{
-				"<leader>do",
+				"<leader>dO",
 				function()
 					require("dap").step_out()
 				end,
 				desc = "步出",
 			},
 			{
-				"<leader>dO",
+				"<leader>do",
 				function()
 					require("dap").step_over()
 				end,
@@ -174,8 +168,91 @@ return {
 	{
 		"rcarriga/nvim-dap-ui",
 		dependencies = { "mfussenegger/nvim-dap", "nvim-neotest/nvim-nio" },
+		lazy = false, -- 关键：不要因为 keys 而懒加载
 		config = function()
-			require("dapui").setup()
+			local dap = require("dap")
+			local dapui = require("dapui")
+
+			dapui.setup({
+				layouts = {
+					{
+						elements = { "scopes", "breakpoints", "stacks", "watches", "repl" },
+						size = 40,
+						position = "left",
+					},
+					{
+						elements = { "console" },
+						size = 10,
+						position = "bottom",
+					},
+				},
+			})
+
+			-- 把 listener 放到这里，setup 之后再注册
+			dap.listeners.after.event_initialized["dapui_config"] = function()
+				dapui.open()
+			end
+			dap.listeners.before.event_terminated["dapui_config"] = function()
+				dapui.close()
+				vim.fn.jobstart("pkill -f mason/bin/codelldb")
+			end
+			dap.listeners.before.event_exited["dapui_config"] = function()
+				dapui.close()
+				vim.fn.jobstart("pkill -f mason/bin/codelldb")
+			end
+			-- 在你的 nvim-dap-ui config 中，dapui.setup 之后添加
+			vim.api.nvim_create_autocmd("FileType", {
+				pattern = "dapui_console",
+				callback = function(args)
+					local buf = args.buf
+					-- 延迟一小段时间，确保终端初始化完成
+					vim.defer_fn(function()
+						if not vim.api.nvim_buf_is_valid(buf) then
+							return
+						end
+						local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+						-- 从顶部开始，删除连续的空行（只保留实际输出）
+						local first_non_empty = 1
+						for i, line in ipairs(lines) do
+							if line:match("%S") then -- 找到第一个非空行
+								first_non_empty = i
+								break
+							end
+						end
+						if first_non_empty > 1 then
+							vim.api.nvim_buf_set_lines(buf, 0, first_non_empty - 1, false, {})
+						end
+					end, 50) -- 50ms 延迟，可根据机器速度微调
+				end,
+			})
+			-- 在 nvim-dap-ui config 中，配合方案二的 autocmd
+			vim.api.nvim_create_autocmd({ "BufWinEnter", "TermOpen" }, {
+				pattern = "*",
+				callback = function(args)
+					if vim.bo[args.buf].filetype == "dapui_console" then
+						-- 将光标钉在第一行，避免初始滚动位置产生空行错觉
+						local wins = vim.fn.win_findbuf(args.buf)
+						for _, win in ipairs(wins) do
+							pcall(vim.api.nvim_win_set_cursor, win, { 1, 0 })
+						end
+					end
+				end,
+			})
+
+			-- 自滚顶脚本
+			-- local dap_scroll_group = vim.api.nvim_create_augroup("DapConsoleScroll", { clear = true })
+			-- vim.api.nvim_create_autocmd({ "TextChangedT", "BufEnter", "BufWinEnter" }, {
+			-- 	group = dap_scroll_group,
+			-- 	pattern = "*",
+			-- 	callback = function(args)
+			-- 		if vim.bo[args.buf].filetype == "dapui_console" then
+			-- 			local wins = vim.fn.win_findbuf(args.buf)
+			-- 			for _, win in ipairs(wins) do
+			-- 				pcall(vim.api.nvim_win_set_cursor, win, { 1, 0 })
+			-- 			end
+			-- 		end
+			-- 	end,
+			-- })
 		end,
 		keys = {
 			{

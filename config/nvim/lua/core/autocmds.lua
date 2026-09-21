@@ -90,3 +90,16 @@ vim.api.nvim_create_user_command("SnipList", function()
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(res, "\n"))
 	vim.api.nvim_buf_set_option(buf, "modifiable", false)
 end, {})
+
+-- 在 dapui.setup 后面加上这段：
+-- 强行让 dap-ui 所有的终端/控制台面板自动滚动到底部
+vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
+	pattern = "*",
+	callback = function()
+		-- 如果当前缓冲区的类型是终端（dap-ui 的 console 本质上是 terminal）
+		if vim.bo.buftype == "dapui_console" then
+			-- 延迟 10 毫秒执行，确保文本已经渲染完毕，然后滚动到最后一行
+			vim.cmd("normal! gg")
+		end
+	end,
+})

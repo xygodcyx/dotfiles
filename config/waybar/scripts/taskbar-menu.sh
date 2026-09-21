@@ -17,6 +17,8 @@ wins=$(niri msg --json windows 2>/dev/null) || exit 0
 
 # 生成 "显示文本<TAB>动作" 列表：
 # --with-nth=1 只显示第一列，--accept-nth=2 返回第二列（动作）
+
+
 mapfile -t entries < <(jq -r --argjson ids "$ids_json" '
   def win_name: (.title // "") as $t
     | (if $t == "" then (.app_id // "窗口") else $t end)

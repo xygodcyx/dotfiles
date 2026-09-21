@@ -53,13 +53,23 @@
     //   · empty_icon：没有任何窗口时显示的占位图标
     //   · right_click_command：右键应用图标时打开的菜单脚本
     //   · tray_icon_size / show_passive_items：插件内置托盘
+    //   · hide_apps_with_tray：有托盘图标的应用隐藏其窗口按钮（按 PID 匹配）
+    //   · tray_window_aliases：名字对不上时的别名表（可选）
+    //   · tray_left_click_focus：左键聚焦应用窗口（默认开）
+    //   · tray_kill_on_remove：中键菜单"结束进程并移除图标"同时结束进程（默认开）
+    //   · tray_enabled：是否启用插件内置托盘；false = 纯 niri-taskbar（无托盘图标）
     "module_path": "/home/lyorn/.local/lib/waybar/libniri_taskbar.so",
     "group_by_app_id": true,
     "max_buttons": 3,
     "empty_icon": "󰀻",
-    // "right_click_command": "~/.config/waybar/scripts/taskbar-menu.sh",
-    "tray_icon_size": 8,
+    "right_click_command": "~/.config/waybar/scripts/taskbar-menu.sh",
+    "tray_enabled": false,
+    "tray_icon_size": 7,
     "show_passive_items": true,
+    "hide_apps_with_tray": true,
+    // 名字对不上时手动补充别名（托盘 Id/Title ↔ 窗口 app_id/标题），例如：
+    // "tray_window_aliases": [["wechat", "微信"], ["telegram", "TelegramDesktop"]],
+    "tray_window_aliases": [],
   },
 
   // ── 中间：当前聚焦的窗口 ────────────────────────────────────────

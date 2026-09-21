@@ -233,10 +233,10 @@ index 87430da..e80147c 100644
                  }
              });
 diff --git a/src/config.rs b/src/config.rs
-index 8041cce..8ad4641 100644
+index 8041cce..ef4bd8c 100644
 --- a/src/config.rs
 +++ b/src/config.rs
-@@ -13,6 +13,24 @@ pub struct Config {
+@@ -13,6 +13,39 @@ pub struct Config {
      notifications: Notifications,
      #[serde(default)]
      show_all_outputs: bool,
@@ -258,10 +258,25 @@ index 8041cce..8ad4641 100644
 +    /// 是否显示 Passive 状态的托盘项。
 +    #[serde(default)]
 +    show_passive_items: bool,
++    /// 有托盘图标的应用是否隐藏任务栏窗口按钮（PID / 名字匹配）。
++    #[serde(default)]
++    hide_apps_with_tray: bool,
++    /// 托盘和窗口名字对不上的手动别名表，例如 [["wechat", "微信"]]。
++    #[serde(default)]
++    tray_window_aliases: Vec<Vec<String>>,
++    /// 左键点击托盘图标时，优先聚焦它对应的窗口（默认开）。
++    #[serde(default = "default_true")]
++    tray_left_click_focus: bool,
++    /// 中键菜单"结束进程并移除图标"是否真的结束进程（默认开）。
++    #[serde(default = "default_true")]
++    tray_kill_on_remove: bool,
++    /// 是否启用插件内置的系统托盘（默认开）。关掉就是纯 niri-taskbar。
++    #[serde(default = "default_true")]
++    tray_enabled: bool,
  }
  
  #[derive(Debug, Deserialize)]
-@@ -99,6 +117,30 @@ impl Config {
+@@ -99,6 +132,50 @@ impl Config {
      pub fn show_all_outputs(&self) -> bool {
          self.show_all_outputs
      }
@@ -288,6 +303,26 @@ index 8041cce..8ad4641 100644
 +
 +    pub fn show_passive_items(&self) -> bool {
 +        self.show_passive_items
++    }
++
++    pub fn hide_apps_with_tray(&self) -> bool {
++        self.hide_apps_with_tray
++    }
++
++    pub fn tray_window_aliases(&self) -> &[Vec<String>] {
++        &self.tray_window_aliases
++    }
++
++    pub fn tray_left_click_focus(&self) -> bool {
++        self.tray_left_click_focus
++    }
++
++    pub fn tray_kill_on_remove(&self) -> bool {
++        self.tray_kill_on_remove
++    }
++
++    pub fn tray_enabled(&self) -> bool {
++        self.tray_enabled
 +    }
  }
  
@@ -332,17 +367,27 @@ index 7e4858e..a7468cf 100644
      if let Some(path) = freedesktop_icons::lookup(id).with_size(512).find() {
          return Some(path);
 diff --git a/src/lib.rs b/src/lib.rs
-index 67a7eb0..b72a2fa 100644
+index 67a7eb0..6cb1503 100644
 --- a/src/lib.rs
 +++ b/src/lib.rs
-@@ -1,5 +1,5 @@
+@@ -1,12 +1,14 @@
  use std::{
 -    collections::{BTreeMap, BTreeSet, HashMap, btree_map::Entry},
++    cell::RefCell,
 +    collections::{BTreeMap, BTreeSet, HashMap},
++    rc::Rc,
      sync::{Arc, LazyLock, Mutex},
  };
  
-@@ -18,7 +18,7 @@ use waybar_cffi::{
+ use button::Button;
+ use config::Config;
+ use error::Error;
+-use futures::StreamExt;
++use futures::{FutureExt, StreamExt};
+ use niri::{Snapshot, Window};
+ use notify::EnrichedNotification;
+ use output::Matcher;
+@@ -18,7 +20,7 @@ use waybar_cffi::{
      gtk::{
          self, Orientation, gio,
          glib::MainContext,
@@ -351,7 +396,7 @@ index 67a7eb0..b72a2fa 100644
      },
      waybar_module,
  };
-@@ -32,6 +32,7 @@ mod notify;
+@@ -32,6 +34,7 @@ mod notify;
  mod output;
  mod process;
  mod state;
@@ -359,7 +404,7 @@ index 67a7eb0..b72a2fa 100644
  
  static TRACING: LazyLock<()> = LazyLock::new(|| {
      if let Err(e) = tracing_subscriber::fmt()
-@@ -68,36 +69,69 @@ waybar_module!(TaskbarModule);
+@@ -68,36 +71,122 @@ waybar_module!(TaskbarModule);
  
  #[tracing::instrument(level = "DEBUG", skip_all, err)]
  async fn init(info: &waybar_cffi::InitInfo, state: State) -> Result<(), Error> {
@@ -374,11 +419,6 @@ index 67a7eb0..b72a2fa 100644
 -    root.add(&container);
 +    root_box.add(&container);
 +
-+    let tray_box = gtk::Box::new(Orientation::Horizontal, 0);
-+    tray_box.style_context().add_class("niri-tray");
-+    tray_box.set_visible(false);
-+    root_box.add(&tray_box);
-+
 +    root.add(&root_box);
 +
 +    // 没有任何窗口时显示的占位图标
@@ -389,18 +429,60 @@ index 67a7eb0..b72a2fa 100644
 +    container.add(&placeholder);
  
 -    // We need to spawn a task to receive the window snapshots and update the container.
-+    // 托盘：插件自己实现 StatusNotifierItem 宿主
-+    let tray_state = state.clone();
      let context = MainContext::default();
 -    context.spawn_local(async move { Instance::new(state, container).task().await });
-+    context.spawn_local(async move { tray::Tray::new(tray_state, tray_box).task().await });
++
++    // 托盘索引（PID + 名字）：有托盘图标的应用不再显示窗口按钮
++    let tray_index: Rc<RefCell<tray::TrayIndex>> = Rc::new(RefCell::new(Default::default()));
++    let windows_shared: Rc<RefCell<Vec<WindowEntry>>> = Rc::new(RefCell::new(Vec::new()));
++    let (refresh_tx, refresh_rx) = async_channel::bounded(1);
++
++    if state.config().tray_enabled() {
++        let tray_box = gtk::Box::new(Orientation::Horizontal, 0);
++        tray_box.style_context().add_class("niri-tray");
++        tray_box.set_visible(false);
++        root_box.add(&tray_box);
++
++        // 托盘：插件自己实现 StatusNotifierItem 宿主
++        let tray_state = state.clone();
++        let tray_index_for_tray = tray_index.clone();
++        let windows_for_tray = windows_shared.clone();
++        let tray_refresh_tx = refresh_tx.clone();
++        context.spawn_local(async move {
++            tray::Tray::new(
++                tray_state,
++                tray_box,
++                tray_index_for_tray,
++                windows_for_tray,
++                tray_refresh_tx,
++            )
++            .task()
++            .await
++        });
++    } else {
++        tracing::debug!("tray disabled by config; running pure niri-taskbar");
++    }
 +
 +    // 窗口按钮的更新任务
-+    context.spawn_local(async move { Instance::new(state, container, placeholder).task().await });
++    context.spawn_local(async move {
++        let _keep_channel_open = refresh_tx; // 关掉托盘时保持通道打开，避免刷新分支空转
++        Instance::new(state, container, placeholder, tray_index, windows_shared, refresh_rx)
++            .task()
++            .await
++    });
  
      Ok(())
  }
  
++/// 窗口的简要信息（托盘左键聚焦用）
++#[derive(Clone, Debug, Default)]
++pub struct WindowEntry {
++    pub id: u64,
++    pub app_id: Option<String>,
++    pub pid: Option<i32>,
++    pub title: Option<String>,
++}
++
  struct Instance {
 -    buttons: BTreeMap<u64, Button>,
 +    /// 按钮，键为分组 key（`app:<app_id>` 或 `win:<id>`）。
@@ -411,18 +493,34 @@ index 67a7eb0..b72a2fa 100644
 +    /// 没有窗口时显示的占位图标。
 +    placeholder: gtk::Label,
      last_snapshot: Option<Snapshot>,
++    /// 托盘索引：命中时隐藏对应的窗口按钮
++    tray_index: Rc<RefCell<tray::TrayIndex>>,
++    /// 当前所有窗口（供托盘左键聚焦）
++    windows_shared: Rc<RefCell<Vec<WindowEntry>>>,
++    /// 托盘变化时通知这里重新计算
++    refresh_rx: async_channel::Receiver<()>,
      state: State,
  }
  
  impl Instance {
 -    pub fn new(state: State, container: gtk::Box) -> Self {
-+    pub fn new(state: State, container: gtk::Box, placeholder: gtk::Label) -> Self {
++    pub fn new(
++        state: State,
++        container: gtk::Box,
++        placeholder: gtk::Label,
++        tray_index: Rc<RefCell<tray::TrayIndex>>,
++        windows_shared: Rc<RefCell<Vec<WindowEntry>>>,
++        refresh_rx: async_channel::Receiver<()>,
++    ) -> Self {
          Self {
              buttons: Default::default(),
 +            window_group: Default::default(),
              container,
 +            placeholder,
              last_snapshot: None,
++            tray_index,
++            windows_shared,
++            refresh_rx,
              state,
          }
      }
@@ -436,7 +534,47 @@ index 67a7eb0..b72a2fa 100644
      pub async fn task(&mut self) {
          // We have to build the output filter here, because until the Glib event loop has run the
          // container hasn't been realised, which means we can't figure out which output we're on.
-@@ -231,7 +265,7 @@ impl Instance {
+@@ -110,17 +199,29 @@ impl Instance {
+                 return;
+             }
+         };
+-        while let Some(event) = stream.next().await {
+-            match event {
+-                Event::Notification(notification) => self.process_notification(notification).await,
+-                Event::WindowSnapshot(windows) => {
+-                    self.process_window_snapshot(windows, output_filter.clone())
+-                        .await
++        loop {
++            futures::select! {
++                event = stream.next().fuse() => {
++                    match event {
++                        Some(Event::Notification(notification)) => {
++                            self.process_notification(notification).await
++                        }
++                        Some(Event::WindowSnapshot(windows)) => {
++                            self.process_window_snapshot(windows, output_filter.clone()).await
++                        }
++                        Some(Event::Workspaces(_)) => {
++                            // We're just using this as a signal that the outputs may have changed.
++                            let new_filter = self.build_output_filter().await;
++                            *output_filter.lock().expect("output filter lock") = new_filter;
++                        }
++                        None => break,
++                    }
+                 }
+-                Event::Workspaces(_) => {
+-                    // We're just using this as a signal that the outputs may have changed.
+-                    let new_filter = self.build_output_filter().await;
+-                    *output_filter.lock().expect("output filter lock") = new_filter;
++                // 托盘 PID 集合变化：用上次的快照重新计算显示
++                _ = self.refresh_rx.recv().fuse() => {
++                    if let Some(snapshot) = self.last_snapshot.clone() {
++                        self.process_window_snapshot(snapshot, output_filter.clone()).await;
++                    }
+                 }
+             }
+         }
+@@ -231,7 +332,7 @@ impl Instance {
                      // If the window is already focused, there isn't really much
                      // to do.
                      if !window.is_focused {
@@ -445,7 +583,7 @@ index 67a7eb0..b72a2fa 100644
                              tracing::trace!(
                                  ?button,
                                  ?window,
-@@ -314,7 +348,7 @@ impl Instance {
+@@ -314,7 +415,7 @@ impl Instance {
              };
  
              if app_id == mapped {
@@ -454,7 +592,7 @@ index 67a7eb0..b72a2fa 100644
                      tracing::trace!(app_id, ?button, ?window, "toplevel match found via app ID");
                      button.set_urgent();
                      found = true;
-@@ -348,7 +382,7 @@ impl Instance {
+@@ -348,7 +449,7 @@ impl Instance {
  
          if !found {
              for id in fuzzy.into_iter() {
@@ -463,7 +601,7 @@ index 67a7eb0..b72a2fa 100644
                      button.set_urgent();
                  }
              }
-@@ -361,33 +395,147 @@ impl Instance {
+@@ -361,33 +462,187 @@ impl Instance {
          windows: Snapshot,
          filter: Arc<Mutex<output::Filter>>,
      ) {
@@ -480,6 +618,25 @@ index 67a7eb0..b72a2fa 100644
 -                Entry::Occupied(entry) => entry.into_mut(),
 -                Entry::Vacant(entry) => {
 -                    let button = Button::new(&self.state, window);
++        // 共享给托盘的窗口列表（左键聚焦用，包含所有窗口）
++        {
++            let mut shared = self.windows_shared.borrow_mut();
++            *shared = windows
++                .iter()
++                .map(|window| WindowEntry {
++                    id: window.id,
++                    app_id: window.app_id.clone(),
++                    pid: window.pid,
++                    title: window.title.clone(),
++                })
++                .collect();
++        }
+ 
+-                    // Implicitly adding the button widget to the box as we create it simplifies
+-                    // reordering, since it means we can just do it as we go.
+-                    self.container.add(button.widget());
+-                    entry.insert(button)
+-                }
 +        // 当前输出上应该显示的窗口（快照本身已按工作区、位置排序）。
 +        let visible: Vec<&Window> = windows
 +            .iter()
@@ -498,17 +655,13 @@ index 67a7eb0..b72a2fa 100644
 +            key: String,
 +            app_id: Option<String>,
 +            ids: Vec<u64>,
++            pids: Vec<Option<i32>>,
 +            titles: Vec<Option<String>>,
 +            focused: Option<u64>,
 +            primary: u64,
 +            primary_timestamp: Option<(u64, u32)>,
 +        }
- 
--                    // Implicitly adding the button widget to the box as we create it simplifies
--                    // reordering, since it means we can just do it as we go.
--                    self.container.add(button.widget());
--                    entry.insert(button)
--                }
++
 +        let mut groups: Vec<Group> = Vec::new();
 +        let mut group_index: HashMap<String, usize> = HashMap::new();
 +
@@ -526,6 +679,7 @@ index 67a7eb0..b72a2fa 100644
 +                    key,
 +                    app_id: window.app_id.clone(),
 +                    ids: Vec::new(),
++                    pids: Vec::new(),
 +                    titles: Vec::new(),
 +                    focused: None,
 +                    primary: window.id,
@@ -536,18 +690,42 @@ index 67a7eb0..b72a2fa 100644
 +
 +            let group = &mut groups[idx];
 +            group.ids.push(window.id);
++            group.pids.push(window.pid);
 +            group.titles.push(window.title.clone());
 +            if window.is_focused {
 +                group.focused = Some(window.id);
 +            }
- 
--            // Ensure we don't remove this button from the container.
--            omitted.remove(&window.id);
++
 +            let timestamp = window.focus_timestamp.map(|ts| (ts.secs, ts.nanos));
 +            if timestamp > group.primary_timestamp {
 +                group.primary_timestamp = timestamp;
 +                group.primary = window.id;
 +            }
++        }
+ 
+-            // Ensure we don't remove this button from the container.
+-            omitted.remove(&window.id);
++        // 和托盘去重：同一个应用已经有托盘图标时，不再显示窗口按钮
++        if self.state.config().hide_apps_with_tray() {
++            let index = self.tray_index.borrow();
++            let aliases = self.state.config().tray_window_aliases();
++            groups.retain(|group| {
++                if group
++                    .pids
++                    .iter()
++                    .flatten()
++                    .any(|pid| index.pids.contains(pid))
++                {
++                    tracing::debug!(app_id = ?group.app_id, "taskbar: hidden (pid matches a tray item)");
++                    return false;
++                }
++                let titles: Vec<String> = group.titles.iter().flatten().cloned().collect();
++                if tray::group_has_tray(&index, group.app_id.as_deref(), &titles, aliases) {
++                    tracing::debug!(app_id = ?group.app_id, "taskbar: hidden (name matches a tray item)");
++                    return false;
++                }
++                true
++            });
 +        }
 +
 +        // 选择要显示的分组：以聚焦分组为中心，最多显示 max_buttons 个；
@@ -634,7 +812,7 @@ index 67a7eb0..b72a2fa 100644
  
              // Since we get the windows in order in the snapshot, we can just
              // push this to the back and then let other widgets push in front as
-@@ -395,15 +543,27 @@ impl Instance {
+@@ -395,15 +650,27 @@ impl Instance {
              self.container.reorder_child(button.widget(), -1);
          }
  
@@ -668,7 +846,7 @@ index 67a7eb0..b72a2fa 100644
  
          // Update the last snapshot.
          self.last_snapshot = Some(windows);
-@@ -428,3 +588,49 @@ impl<'a> PidWindowMap<'a> {
+@@ -428,3 +695,49 @@ impl<'a> PidWindowMap<'a> {
          self.0.get(&pid).copied()
      }
  }
@@ -716,5 +894,1508 @@ index 67a7eb0..b72a2fa 100644
 +    #[test]
 +    fn zero_means_unlimited() {
 +        assert_eq!(visible_range(9, 10, 0), 0..10);
++    }
++}
+diff --git a/src/tray.rs b/src/tray.rs
+new file mode 100644
+index 0000000..602ced6
+--- /dev/null
++++ b/src/tray.rs
+@@ -0,0 +1,1497 @@
++//! 插件内置的系统托盘（StatusNotifierItem 宿主）。
++//!
++//! 托盘图标直接渲染进 niri-taskbar 的容器里，右键通过 libdbusmenu-gtk3 弹出
++//! 应用自己提供的 DBusMenu——这样任务栏和托盘是同一个模块，不再出现两条应用栏。
++
++use std::{
++    cell::RefCell,
++    collections::HashMap,
++    ffi::CString,
++    rc::Rc,
++    sync::{
++        Mutex,
++        atomic::{AtomicBool, Ordering},
++    },
++};
++
++use futures::StreamExt;
++use waybar_cffi::gtk::{
++    self as gtk,
++    gdk_pixbuf::{Colorspace, InterpType, Pixbuf},
++    glib,
++    prelude::*,
++};
++use waybar_cffi::gtk::glib::translate::FromGlibPtrNone;
++use zbus::{Connection, Proxy, interface, object_server::SignalEmitter};
++
++use crate::state::State;
++
++const WATCHER_NAME: &str = "org.kde.StatusNotifierWatcher";
++const WATCHER_PATH: &str = "/StatusNotifierWatcher";
++const WATCHER_INTERFACE: &str = "org.kde.StatusNotifierWatcher";
++const SNI_INTERFACE: &str = "org.kde.StatusNotifierItem";
++const DEFAULT_ITEM_PATH: &str = "/StatusNotifierItem";
++
++// libdbusmenu-gtk3 提供现成的 DBusMenu → GtkMenu 适配器
++#[link(name = "dbusmenu-gtk3")]
++unsafe extern "C" {
++    fn dbusmenu_gtkmenu_new(
++        bus_name: *const std::os::raw::c_char,
++        path: *const std::os::raw::c_char,
++    ) -> *mut gtk::ffi::GtkWidget;
++}
++
++enum Event {
++    Added(String),
++    Removed(String),
++}
++
++/// 托盘索引：任务栏去重用（PID + 名字）
++#[derive(Default, Debug)]
++pub struct TrayIndex {
++    pub pids: std::collections::HashSet<i32>,
++    /// 每个托盘项的（Id, Title）名字集合
++    pub names: Vec<Vec<String>>,
++}
++
++fn normalize(name: &str) -> String {
++    name.trim().to_lowercase()
++}
++
++fn names_match(a: &str, b: &str, allow_substring: bool) -> bool {
++    let a = normalize(a);
++    let b = normalize(b);
++    if a.is_empty() || b.is_empty() {
++        return false;
++    }
++    if a == b {
++        return true;
++    }
++    if !allow_substring {
++        return false;
++    }
++    let (short, long) = if a.len() <= b.len() { (&a, &b) } else { (&b, &a) };
++    short.chars().count() >= 4 && long.contains(short.as_str())
++}
++
++/// 某个托盘项（names）与窗口/分组（app_id + 标题）是否是同一个应用
++fn tray_names_match_window(
++    names: &[String],
++    app_id: Option<&str>,
++    titles: &[String],
++    aliases: &[Vec<String>],
++) -> bool {
++    // 手动别名：别名组里同时出现托盘名字和窗口名字
++    for alias_group in aliases {
++        let alias_names: Vec<String> = alias_group.iter().map(|s| normalize(s)).collect();
++        let tray_hit = names
++            .iter()
++            .any(|tray| alias_names.iter().any(|name| names_match(tray, name, true)));
++        if !tray_hit {
++            continue;
++        }
++        let window_hit = app_id
++            .into_iter()
++            .any(|id| alias_names.iter().any(|name| names_match(id, name, true)))
++            || titles
++                .iter()
++                .any(|title| alias_names.iter().any(|name| names_match(title, name, true)));
++        if window_hit {
++            return true;
++        }
++    }
++
++    // 自动：app_id 精确/包含；标题只做精确匹配
++    for name in names {
++        if let Some(id) = app_id {
++            if names_match(name, id, true) {
++                return true;
++            }
++        }
++        if titles.iter().any(|title| names_match(name, title, false)) {
++            return true;
++        }
++    }
++
++    false
++}
++
++/// 找到某个托盘项对应的窗口（PID 优先，其次名字匹配）
++pub(crate) fn find_window(
++    windows: &[crate::WindowEntry],
++    pid: Option<i32>,
++    names: &[String],
++    aliases: &[Vec<String>],
++) -> Option<u64> {
++    if let Some(pid) = pid {
++        if let Some(window) = windows.iter().find(|window| window.pid == Some(pid)) {
++            return Some(window.id);
++        }
++    }
++
++    windows.iter().find_map(|window| {
++        let titles: Vec<String> = window.title.clone().into_iter().collect();
++        if tray_names_match_window(names, window.app_id.as_deref(), &titles, aliases) {
++            Some(window.id)
++        } else {
++            None
++        }
++    })
++}
++
++/// 窗口分组（app_id + 窗口标题）是否因为托盘图标而隐藏
++pub(crate) fn group_has_tray(
++    index: &TrayIndex,
++    app_id: Option<&str>,
++    titles: &[String],
++    aliases: &[Vec<String>],
++) -> bool {
++    index
++        .names
++        .iter()
++        .any(|names| tray_names_match_window(names, app_id, titles, aliases))
++}
++
++/// `service` 或 `service/path` → `service/path`
++fn normalize_item(service: &str) -> String {
++    if service.contains('/') {
++        service.to_string()
++    } else {
++        format!("{service}{DEFAULT_ITEM_PATH}")
++    }
++}
++
++fn split_item(item: &str) -> (String, String) {
++    match item.split_once('/') {
++        Some((service, path)) => (service.to_string(), format!("/{path}")),
++        None => (item.to_string(), DEFAULT_ITEM_PATH.to_string()),
++    }
++}
++
++// ── org.kde.StatusNotifierWatcher ───────────────────────────────────
++struct Watcher {
++    items: Mutex<Vec<String>>,
++    host_registered: AtomicBool,
++    tx: async_channel::Sender<Event>,
++}
++
++#[interface(name = "org.kde.StatusNotifierWatcher")]
++impl Watcher {
++    async fn register_status_notifier_item(
++        &self,
++        service: String,
++        #[zbus(header)] header: zbus::message::Header<'_>,
++        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
++    ) {
++        // 只给路径时，服务名就是调用者的唯一总线名（SNI 规范）
++        let item = if service.starts_with('/') {
++            match header.sender() {
++                Some(sender) => format!("{sender}{service}"),
++                None => return,
++            }
++        } else {
++            normalize_item(&service)
++        };
++
++        {
++            let mut items = self.items.lock().expect("watcher items lock");
++            if items.contains(&item) {
++                return;
++            }
++            items.push(item.clone());
++        }
++
++        tracing::debug!(item, "tray: item registered");
++        let _ = self.tx.send(Event::Added(item.clone())).await;
++        let _ = Self::status_notifier_item_registered(&emitter, &item).await;
++    }
++
++    async fn register_status_notifier_host(
++        &self,
++        _service: String,
++        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
++    ) {
++        self.host_registered.store(true, Ordering::SeqCst);
++        let _ = Self::status_notifier_host_registered(&emitter).await;
++    }
++
++    #[zbus(property)]
++    fn registered_status_notifier_items(&self) -> Vec<String> {
++        self.items.lock().expect("watcher items lock").clone()
++    }
++
++    #[zbus(property)]
++    fn is_status_notifier_host_registered(&self) -> bool {
++        self.host_registered.load(Ordering::SeqCst)
++    }
++
++    #[zbus(property)]
++    fn protocol_version(&self) -> i32 {
++        0
++    }
++
++    #[zbus(signal, name = "StatusNotifierItemRegistered")]
++    async fn status_notifier_item_registered(
++        emitter: &SignalEmitter<'_>,
++        service: &str,
++    ) -> zbus::Result<()>;
++
++    #[zbus(signal, name = "StatusNotifierItemUnregistered")]
++    async fn status_notifier_item_unregistered(
++        emitter: &SignalEmitter<'_>,
++        service: &str,
++    ) -> zbus::Result<()>;
++
++    #[zbus(signal, name = "StatusNotifierHostRegistered")]
++    async fn status_notifier_host_registered(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
++}
++
++// ── 托盘项的小部件 ──────────────────────────────────────────────────
++struct ItemWidgets {
++    button: gtk::Button,
++    image: gtk::Image,
++    menu: Option<gtk::Menu>,
++    /// 该托盘项所属进程的 PID（用于和任务栏窗口去重）
++    pid: Option<i32>,
++    /// 托盘项的（Id, Title），用于按名字去重
++    names: Vec<String>,
++}
++
++/// 托盘图标大小（设备像素）
++fn tray_icon_size(state: &State, widget: &impl IsA<gtk::Widget>) -> i32 {
++    let configured = state.config().tray_icon_size();
++    let base = if configured == 0 { 16 } else { configured as i32 };
++    base * widget.scale_factor()
++}
++
++/// 从 IconThemePath 里找图标（应用自带的图标目录）
++fn load_from_theme_path(theme_path: &str, icon_name: &str, size: i32) -> Option<Pixbuf> {
++    let extensions = ["png", "svg"];
++    let sizes = [size, 16, 22, 24, 32, 48, 64, 128];
++    let categories = ["apps", "status", "panel", "devices", "categories", ""];
++
++    for category in categories {
++        for s in sizes {
++            for ext in extensions {
++                let dir = if category.is_empty() {
++                    format!("{theme_path}/{s}x{s}")
++                } else {
++                    format!("{theme_path}/{s}x{s}/{category}")
++                };
++                let path = format!("{dir}/{icon_name}.{ext}");
++                if let Ok(pb) = Pixbuf::from_file_at_scale(&path, size, size, true) {
++                    return Some(pb);
++                }
++            }
++        }
++    }
++
++    // 有些应用直接把图标放在根目录
++    for ext in extensions {
++        let path = format!("{theme_path}/{icon_name}.{ext}");
++        if let Ok(pb) = Pixbuf::from_file_at_scale(&path, size, size, true) {
++            return Some(pb);
++        }
++    }
++
++    None
++}
++
++/// 用 GTK 当前图标主题查找（symbolic 等主题内图标）
++fn load_from_gtk_theme(name: &str, size: i32) -> Option<Pixbuf> {
++    thread_local! {
++        static THEME: gtk::IconTheme = gtk::IconTheme::default().unwrap_or_default();
++    }
++
++    THEME.with(|theme| {
++        let info = theme.lookup_icon_for_scale(name, size, 1, gtk::IconLookupFlags::empty())?;
++        let filename = info.filename()?;
++        Pixbuf::from_file_at_scale(&filename, size, size, true).ok()
++    })
++}
++
++/// 兜底图标（通用应用图标）
++fn fallback_icon(cache: &crate::icon::Cache, size: i32) -> Option<Pixbuf> {
++    if let Some(pb) = load_from_gtk_theme("application-x-executable", size) {
++        return Some(pb);
++    }
++    cache
++        .lookup("application-x-executable")
++        .and_then(|path| Pixbuf::from_file_at_scale(&path, size, size, true).ok())
++}
++
++/// 查找应用图标（找不到返回 None，**不做兜底**）。
++///
++/// 刷新时必须用这个而不是"带兜底"的版本，否则应用某一刻图标数据为空时，
++/// 会把已经显示正确的图标覆盖成通用图标。
++fn find_icon(
++    cache: &crate::icon::Cache,
++    icon_name: &str,
++    theme_path: &str,
++    pixmap: &[(i32, i32, Vec<u8>)],
++    size: i32,
++) -> Option<Pixbuf> {
++    // 有些应用（如 Clash Verge）直接给图标文件的绝对路径
++    if icon_name.starts_with('/') {
++        if let Ok(pb) = Pixbuf::from_file_at_scale(icon_name, size, size, true) {
++            tracing::debug!(icon_name, "tray: icon from absolute path");
++            return Some(pb);
++        }
++    }
++
++    if !icon_name.is_empty() {
++        if let Some(path) = cache.lookup(icon_name) {
++            if let Ok(pb) = Pixbuf::from_file_at_scale(&path, size, size, true) {
++                tracing::debug!(icon_name, ?path, "tray: icon from icon cache");
++                return Some(pb);
++            }
++        }
++        if !theme_path.is_empty() {
++            if let Some(pb) = load_from_theme_path(theme_path, icon_name, size) {
++                tracing::debug!(icon_name, theme_path, "tray: icon from theme path");
++                return Some(pb);
++            }
++        }
++        if let Some(pb) = load_from_gtk_theme(icon_name, size) {
++            tracing::debug!(icon_name, "tray: icon from gtk theme");
++            return Some(pb);
++        }
++    }
++
++    tracing::debug!(
++        icon_name,
++        theme_path,
++        pixmaps = pixmap.len(),
++        sizes = ?pixmap.iter().map(|(w, h, d)| (*w, *h, d.len())).collect::<Vec<_>>(),
++        "tray: icon pixmap candidates"
++    );
++
++    // IconPixmap：ARGB（网络字节序）→ RGBA
++    if let Some((width, height, data)) = pixmap
++        .iter()
++        .max_by_key(|(w, h, d)| (*w as i64) * (*h as i64) * (d.len() as i64))
++    {
++        let (w, h) = (*width as usize, *height as usize);
++        if w > 0 && h > 0 && data.len() >= w * h * 4 {
++            let mut rgba = Vec::with_capacity(w * h * 4);
++            for px in data.chunks_exact(4).take(w * h) {
++                rgba.extend_from_slice(&[px[1], px[2], px[3], px[0]]);
++            }
++            let bytes = glib::Bytes::from(&rgba[..]);
++            let pb = Pixbuf::from_bytes(&bytes, Colorspace::Rgb, true, 8, *width, *height, (*width) * 4);
++            if let Some(scaled) = pb.scale_simple(size, size, InterpType::Bilinear) {
++                tracing::debug!(width, height, "tray: icon from pixmap");
++                return Some(scaled);
++            }
++        }
++    }
++
++    tracing::debug!(icon_name, theme_path, "tray: icon NOT found");
++    None
++}
++
++fn build_menu(service: &str, menu_path: &str) -> Option<gtk::Menu> {
++    let service_c = CString::new(service).ok()?;
++    let path_c = CString::new(menu_path).ok()?;
++
++    let ptr = unsafe { dbusmenu_gtkmenu_new(service_c.as_ptr(), path_c.as_ptr()) };
++    if ptr.is_null() {
++        return None;
++    }
++
++    let menu = unsafe { gtk::Menu::from_glib_none(ptr as *mut gtk::ffi::GtkMenu) };
++    Some(menu)
++}
++
++fn show_menu(
++    widgets: &Rc<RefCell<ItemWidgets>>,
++    service: &str,
++    menu_path: &str,
++    event: Option<&gtk::gdk::Event>,
++) {
++    {
++        let mut w = widgets.borrow_mut();
++        if w.menu.is_none() {
++            match build_menu(service, menu_path) {
++                Some(menu) => w.menu = Some(menu),
++                None => {
++                    tracing::debug!(service, menu_path, "tray: cannot build menu");
++                    return;
++                }
++            }
++        }
++    }
++
++    let w = widgets.borrow();
++    if let Some(menu) = &w.menu {
++        menu.show_all();
++        // 用真实事件弹出，GTK 才能正确 grab 指针（与 waybar tray 一样）
++        menu.popup_at_pointer(event);
++    }
++}
++
++/// 从 watcher 的列表中移除某个托盘项，并广播 Unregistered 信号
++async fn unregister_item(conn: &Connection, item: &str) {
++    if let Ok(iface) = conn
++        .object_server()
++        .interface::<_, Watcher>(WATCHER_PATH)
++        .await
++    {
++        let watcher = iface.get().await;
++        watcher
++            .items
++            .lock()
++            .expect("watcher items lock")
++            .retain(|existing| existing != item);
++
++        let emitter = iface.signal_emitter();
++        let _ = Watcher::status_notifier_item_unregistered(&emitter, item).await;
++    }
++}
++
++/// 收集某个进程及其全部子孙进程（用于结束整个应用）
++fn collect_process_tree(root: i32) -> Vec<i32> {
++    use std::collections::HashMap;
++
++    let mut children: HashMap<i32, Vec<i32>> = HashMap::new();
++    if let Ok(entries) = std::fs::read_dir("/proc") {
++        for entry in entries.flatten() {
++            let name = entry.file_name();
++            let Some(pid) = name.to_str().and_then(|s| s.parse::<i32>().ok()) else {
++                continue;
++            };
++            let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
++                continue;
++            };
++            // comm 字段可能带空格/括号，取最后一个 ')' 之后的部分
++            let Some((_, rest)) = stat.rsplit_once(')') else {
++                continue;
++            };
++            let mut fields = rest.split_whitespace();
++            let _state = fields.next();
++            let Some(ppid) = fields.next().and_then(|s| s.parse::<i32>().ok()) else {
++                continue;
++            };
++            children.entry(ppid).or_default().push(pid);
++        }
++    }
++
++    let mut result = Vec::new();
++    let mut stack = vec![root];
++    while let Some(pid) = stack.pop() {
++        result.push(pid);
++        if let Some(kids) = children.get(&pid) {
++            stack.extend(kids);
++        }
++    }
++    result
++}
++
++/// 找到与 root 同一个可执行文件的所有其它进程。
++///
++/// 用来清理同一应用多次启动留下的残留（例如百度网盘）。
++/// 出于安全考虑，解释器/脚本类程序（python/bash/node/java/wine 等）不做这种匹配，
++/// 只结束它们自己的进程树，避免误伤其它脚本。
++fn same_binary_pids(root: i32) -> Vec<i32> {
++    const GUARDED: &[&str] = &[
++        "python", "python3", "sh", "bash", "zsh", "fish", "dash", "node", "deno", "bun", "java",
++        "ruby", "perl", "wine", "wine64", "electron", "kitty", "alacritty", "foot", "ghostty",
++        "wezterm", "konsole", "gnome-terminal", "xterm",
++    ];
++
++    let Ok(root_exe) = std::fs::read_link(format!("/proc/{root}/exe")) else {
++        return Vec::new();
++    };
++    let name = root_exe
++        .file_name()
++        .map(|n| n.to_string_lossy().to_string())
++        .unwrap_or_default();
++    if GUARDED.iter().any(|guarded| name.starts_with(guarded)) {
++        return Vec::new();
++    }
++
++    let mut pids = Vec::new();
++    if let Ok(entries) = std::fs::read_dir("/proc") {
++        for entry in entries.flatten() {
++            let Some(pid) = entry
++                .file_name()
++                .to_str()
++                .and_then(|s| s.parse::<i32>().ok())
++            else {
++                continue;
++            };
++            if pid == root {
++                continue;
++            }
++            if let Ok(exe) = std::fs::read_link(format!("/proc/{pid}/exe")) {
++                if exe == root_exe {
++                    pids.push(pid);
++                }
++            }
++        }
++    }
++
++    pids
++}
++
++fn process_alive(pid: i32) -> bool {
++    // 僵尸进程（已退出但未被父进程回收）视为已结束
++    if let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) {
++        if let Some((_, rest)) = stat.rsplit_once(')') {
++            if rest.split_whitespace().next() == Some("Z") {
++                return false;
++            }
++        }
++    }
++
++    std::process::Command::new("kill")
++        .args(["-0", &pid.to_string()])
++        .status()
++        .map(|status| status.success())
++        .unwrap_or(false)
++}
++
++fn send_signal(pids: &[i32], signal: &str) {
++    for pid in pids {
++        let _ = std::process::Command::new("kill")
++            .args([signal, &pid.to_string()])
++            .status();
++    }
++}
++
++/// 结束整棵进程树（含同一应用的历史残留）：先 SIGTERM，半秒后还活着的 SIGKILL
++async fn kill_process_tree(root: i32) -> usize {
++    if root <= 1 {
++        return 0;
++    }
++
++    let mut pids = collect_process_tree(root);
++    // 同一应用多次启动留下的其它进程也一起清理
++    for pid in same_binary_pids(root) {
++        if !pids.contains(&pid) {
++            pids.push(pid);
++        }
++    }
++
++    send_signal(&pids, "-TERM");
++    glib::timeout_future(std::time::Duration::from_millis(500)).await;
++
++    let stubborn: Vec<i32> = pids.iter().copied().filter(|pid| process_alive(*pid)).collect();
++    send_signal(&stubborn, "-KILL");
++
++    pids.len()
++}
++
++/// 取某个 D-Bus 名字（托盘项）所属进程的 PID
++async fn query_pid(conn: &Connection, service: &str) -> Option<i32> {
++    let proxy: Proxy<'_> = Proxy::new(
++        conn,
++        "org.freedesktop.DBus",
++        "/org/freedesktop/DBus",
++        "org.freedesktop.DBus",
++    )
++    .await
++    .ok()?;
++    let reply = proxy
++        .call_method("GetConnectionUnixProcessID", &(service,))
++        .await
++        .ok()?;
++    let pid: u32 = reply.body().deserialize().ok()?;
++    Some(pid as i32)
++}
++
++/// 读取 SNI 项的 Menu 属性（D-Bus 类型是 ObjectPath，不是字符串）
++async fn query_menu_path(conn: &Connection, service: &str, path: &str) -> Option<String> {
++    let proxy = Proxy::new(
++        conn,
++        service.to_string(),
++        path.to_string(),
++        SNI_INTERFACE,
++    )
++    .await
++    .ok()?;
++    let menu = proxy
++        .get_property::<zbus::zvariant::OwnedObjectPath>("Menu")
++        .await
++        .ok()?;
++    Some(menu.to_string())
++}
++
++fn call_method(conn: &Connection, service: &str, path: &str, method: &'static str) {    let conn = conn.clone();
++    let service = service.to_string();
++    let path = path.to_string();
++
++    glib::spawn_future_local(async move {
++        match Proxy::new(&conn, service.as_str(), path.as_str(), SNI_INTERFACE).await {
++            Ok(proxy) => {
++                if let Err(e) = proxy.call_method(method, &(0i32, 0i32)).await {
++                    tracing::debug!(%e, method, service, "tray: method call failed");
++                }
++            }
++            Err(e) => tracing::debug!(%e, service, "tray: cannot create item proxy"),
++        }
++    });
++}
++
++fn refresh_container_visibility(container: &gtk::Box) {
++    // 注意用 get_visible()（只看控件自身的 visible 标志）；
++    // is_visible() 会连父容器一起判断，父容器隐藏时会永远返回 false。
++    let any = container.children().iter().any(|child| child.get_visible());
++    container.set_visible(any);
++}
++
++// ── 托盘本体 ────────────────────────────────────────────────────────
++pub struct Tray {
++    state: State,
++    container: gtk::Box,
++    items: HashMap<String, Rc<RefCell<ItemWidgets>>>,
++    /// 托盘索引（PID + 名字），任务栏去重用
++    index: Rc<RefCell<TrayIndex>>,
++    /// 当前窗口列表（左键聚焦用）
++    windows: Rc<RefCell<Vec<crate::WindowEntry>>>,
++    /// PID 集合变化后通知任务栏重新计算显示
++    refresh_tx: async_channel::Sender<()>,
++}
++
++impl Tray {
++    pub fn new(
++        state: State,
++        container: gtk::Box,
++        index: Rc<RefCell<TrayIndex>>,
++        windows: Rc<RefCell<Vec<crate::WindowEntry>>>,
++        refresh_tx: async_channel::Sender<()>,
++    ) -> Self {
++        container.set_visible(false);
++        Self {
++            state,
++            container,
++            items: Default::default(),
++            index,
++            windows,
++            refresh_tx,
++        }
++    }
++
++    pub async fn task(mut self) {
++        let conn = match Connection::session().await {
++            Ok(conn) => conn,
++            Err(e) => {
++                tracing::error!(%e, "tray: cannot connect to the session bus");
++                return;
++            }
++        };
++
++        let (tx, rx) = async_channel::unbounded::<Event>();
++
++        // 测试用：NIRI_TASKBAR_FAKE_TRAY_PID=<pid> 时把该 PID 当作托盘项，
++        // 用来验证任务栏去重逻辑（正式运行不会设置这个变量）。
++        if let Some(pid) = std::env::var_os("NIRI_TASKBAR_FAKE_TRAY_PID")
++            .and_then(|v| v.to_string_lossy().parse::<i32>().ok())
++        {
++            self.index.borrow_mut().pids.insert(pid);
++        }
++
++        // 尽量成为 StatusNotifierWatcher；如果名字已被占用（比如另一个状态栏），
++        // 就退化为宿主，连接现成的 watcher。
++        let watcher = Watcher {
++            items: Mutex::new(Vec::new()),
++            host_registered: AtomicBool::new(false),
++            tx: tx.clone(),
++        };
++
++        let mut is_watcher = false;
++        let mut initial: Vec<String> = Vec::new();
++
++        if conn.object_server().at(WATCHER_PATH, watcher).await.is_ok() {
++            match conn.request_name(WATCHER_NAME).await {
++                Ok(_) => is_watcher = true,
++                Err(_) => {
++                    let _ = conn
++                        .object_server()
++                        .remove::<Watcher, _>(WATCHER_PATH)
++                        .await;
++                }
++            }
++        }
++
++        if !is_watcher {
++            match Proxy::new(&conn, WATCHER_NAME, WATCHER_PATH, WATCHER_INTERFACE).await {
++                Ok(proxy) => {
++                    if let Ok(items) = proxy
++                        .get_property::<Vec<String>>("RegisteredStatusNotifierItems")
++                        .await
++                    {
++                        initial = items;
++                    }
++                    let tx2 = tx.clone();
++                    glib::spawn_future_local(async move {
++                        if let Ok(mut stream) = proxy.receive_signal("StatusNotifierItemRegistered").await {
++                            while let Some(msg) = stream.next().await {
++                                if let Ok((item,)) = msg.body().deserialize::<(String,)>() {
++                                    let _ = tx2.send(Event::Added(normalize_item(&item))).await;
++                                }
++                            }
++                        }
++                    });
++                }
++                Err(e) => tracing::warn!(%e, "tray: no StatusNotifierWatcher available"),
++            }
++        } else {
++            tracing::debug!("tray: registered as StatusNotifierWatcher");
++        }
++
++        // 监视总线名字消失 → 移除对应托盘项
++        {
++            let tx2 = tx.clone();
++            let conn2 = conn.clone();
++            glib::spawn_future_local(async move {
++                let proxy: Proxy<'_> = match Proxy::new(
++                    &conn2,
++                    "org.freedesktop.DBus",
++                    "/org/freedesktop/DBus",
++                    "org.freedesktop.DBus",
++                )
++                .await
++                {
++                    Ok(proxy) => proxy,
++                    Err(_) => return,
++                };
++                if let Ok(mut stream) = proxy.receive_signal("NameOwnerChanged").await {
++                    while let Some(msg) = stream.next().await {
++                        if let Ok((name, _old, new)) =
++                            msg.body().deserialize::<(String, String, String)>()
++                        {
++                            if new.is_empty() {
++                                let _ = tx2.send(Event::Removed(name)).await;
++                            }
++                        }
++                    }
++                }
++            });
++        }
++
++        for item in initial {
++            self.add_item(&conn, &item, &tx).await;
++        }
++
++        while let Ok(event) = rx.recv().await {
++            match event {
++                Event::Added(item) => self.add_item(&conn, &item, &tx).await,
++                Event::Removed(name) => self.remove_service(&conn, &name).await,
++            }
++        }
++    }
++
++    /// 监听某个托盘项的生命周期（事件方式，不轮询）
++    ///
++    /// D-Bus 的 NameOwnerChanged 只会推送给"匹配规则里写了具体名字（arg0）"的客户端，
++    /// 所以这里按名字单独订阅；订阅后再补一次 NameHasOwner 检查，
++    /// 避免"订阅之前应用刚好退出"的漏网之鱼。
++    fn watch_item_lifetime(
++        conn: &Connection,
++        service: String,
++        item: String,
++        tx: async_channel::Sender<Event>,
++    ) {
++        let conn = conn.clone();
++        glib::spawn_future_local(async move {
++            let dbus: Proxy<'_> = match Proxy::new(
++                &conn,
++                "org.freedesktop.DBus",
++                "/org/freedesktop/DBus",
++                "org.freedesktop.DBus",
++            )
++            .await
++            {
++                Ok(proxy) => proxy,
++                Err(_) => return,
++            };
++
++            let mut stream = match dbus
++                .receive_signal_with_args("NameOwnerChanged", &[(0, service.as_str())])
++                .await
++            {
++                Ok(stream) => stream,
++                Err(e) => {
++                    tracing::debug!(%e, service, "tray: cannot subscribe to NameOwnerChanged");
++                    return;
++                }
++            };
++
++            // 订阅后的即时补查（覆盖订阅前的竞态）
++            let alive = dbus
++                .call_method("NameHasOwner", &(service.as_str(),))
++                .await
++                .ok()
++                .and_then(|reply| reply.body().deserialize::<bool>().ok())
++                .unwrap_or(true);
++            if !alive {
++                tracing::debug!(%item, service, "tray: item already gone after subscribe");
++                let _ = tx.send(Event::Removed(service)).await;
++                return;
++            }
++
++            while let Some(msg) = stream.next().await {
++                if let Ok((_name, _old, new)) =
++                    msg.body().deserialize::<(String, String, String)>()
++                {
++                    if new.is_empty() {
++                        tracing::debug!(%item, service, "tray: item owner disappeared");
++                        let _ = tx.send(Event::Removed(service)).await;
++                        break;
++                    }
++                }
++            }
++        });
++    }
++
++    async fn remove_service(&mut self, conn: &Connection, service: &str) {
++        let keys: Vec<String> = self
++            .items
++            .keys()
++            .filter(|key| {
++                key.as_str() == service
++                    || key
++                        .strip_prefix(service)
++                        .is_some_and(|rest| rest.starts_with('/'))
++            })
++            .cloned()
++            .collect();
++
++        for key in keys {
++            // 同时从 watcher 的列表里注销并广播 Unregistered
++            unregister_item(conn, &key).await;
++
++            if let Some(widgets) = self.items.remove(&key) {
++                let (button, pid) = {
++                    let w = widgets.borrow();
++                    (w.button.clone(), w.pid)
++                };
++                self.container.remove(&button);
++
++                if let Some(pid) = pid {
++                    // 同一个进程可能有多个托盘项，确认没有其它项再移除
++                    let still_used = self
++                        .items
++                        .values()
++                        .any(|w| w.borrow().pid == Some(pid));
++                    if !still_used {
++                        self.index.borrow_mut().pids.remove(&pid);
++                    }
++                }
++                let names = widgets.borrow().names.clone();
++                self.index.borrow_mut().names.retain(|n| *n != names);
++            }
++        }
++        refresh_container_visibility(&self.container);
++        let _ = self.refresh_tx.try_send(());
++    }
++
++    async fn add_item(
++        &mut self,
++        conn: &Connection,
++        item: &str,
++        tx: &async_channel::Sender<Event>,
++    ) {
++        if self.items.contains_key(item) {
++            return;
++        }
++
++        let (service, path) = split_item(item);
++        let proxy = match Proxy::new(conn, service.clone(), path.clone(), SNI_INTERFACE).await {
++            Ok(proxy) => proxy,
++            Err(e) => {
++                tracing::debug!(%e, item, "tray: cannot create item proxy");
++                return;
++            }
++        };
++
++        let id: String = proxy.get_property("Id").await.unwrap_or_default();
++        let title: String = proxy.get_property("Title").await.unwrap_or_default();
++        let status: String = proxy.get_property("Status").await.unwrap_or_default();
++        let icon_name: String = proxy.get_property("IconName").await.unwrap_or_default();
++        let icon_theme_path: String = proxy.get_property("IconThemePath").await.unwrap_or_default();
++        let icon_pixmap: Vec<(i32, i32, Vec<u8>)> = proxy
++            .get_property("IconPixmap")
++            .await
++            .unwrap_or_default();
++        let item_is_menu: bool = proxy.get_property("ItemIsMenu").await.unwrap_or(false);
++        let menu_path: String = proxy
++            .get_property::<zbus::zvariant::OwnedObjectPath>("Menu")
++            .await
++            .map(|path| path.to_string())
++            .unwrap_or_default();
++
++        tracing::debug!(item, id, status, "tray: adding item");
++
++        let size = tray_icon_size(&self.state, &self.container);
++        let passive = status == "Passive";
++
++        let button = gtk::Button::new();
++        button.set_relief(gtk::ReliefStyle::None);
++        button.set_always_show_image(true);
++        if !title.is_empty() {
++            button.set_tooltip_text(Some(&title));
++        }
++        if passive {
++            button.style_context().add_class("tray-passive");
++        }
++        if status == "NeedsAttention" {
++            button.style_context().add_class("tray-attention");
++        }
++
++        let image = gtk::Image::new();
++        let cache = self.state.icon_cache();
++        let pixbuf = find_icon(cache, &icon_name, &icon_theme_path, &icon_pixmap, size)
++            .or_else(|| fallback_icon(cache, size));
++        if pixbuf.is_none() {
++            tracing::debug!(item, "tray: no icon at all, showing empty");
++        }
++        tracing::debug!(
++            item,
++            icon_name,
++            theme_path = icon_theme_path,
++            has_icon = pixbuf.is_some(),
++            "tray: icon resolved"
++        );
++        if let Some(pb) = pixbuf {
++            image.set_from_pixbuf(Some(&pb));
++        }
++        button.set_image(Some(&image));
++
++        // 提前创建并缓存菜单：libdbusmenu 是异步把菜单项填进来的，
++        // 如果等第一次右键才创建，弹出时菜单还是空的（会显示成很小一块）。
++        let menu = if menu_path.is_empty() {
++            None
++        } else {
++            build_menu(&service, &menu_path)
++        };
++
++        // 记录 PID：任务栏里同一个应用的窗口按钮会隐藏，只留托盘图标
++        let pid = query_pid(conn, &service).await;
++        if let Some(pid) = pid {
++            self.index.borrow_mut().pids.insert(pid);
++        }
++
++        let mut names: Vec<String> = Vec::new();
++        for name in [id.as_str(), title.as_str()] {
++            if !name.is_empty() && !names.iter().any(|n| normalize(n) == normalize(name)) {
++                names.push(name.to_string());
++            }
++        }
++
++        let widgets = Rc::new(RefCell::new(ItemWidgets {
++            button: button.clone(),
++            image: image.clone(),
++            menu,
++            pid,
++            names: names.clone(),
++        }));
++
++        // 左键：应用自己有窗口时直接聚焦它（很多应用的 Activate 是空实现），
++        //       否则回退到应用的 Activate；ItemIsMenu 的项左键弹菜单。
++        {
++            let widgets = widgets.clone();
++            let service = service.clone();
++            let path = path.clone();
++            let menu_path = menu_path.clone();
++            let conn = conn.clone();
++            let click_names = names.clone();
++            let click_pid = pid;
++            let windows = self.windows.clone();
++            let state = self.state.clone();
++            let focus_enabled = self.state.config().tray_left_click_focus();
++            let aliases: Vec<Vec<String>> = self.state.config().tray_window_aliases().to_vec();
++
++            button.connect_clicked(move |_| {
++                let widgets = widgets.clone();
++                let service = service.clone();
++                let path = path.clone();
++                let menu_path = menu_path.clone();
++                let conn = conn.clone();
++                let names = click_names.clone();
++                let windows = windows.clone();
++                let state = state.clone();
++                let aliases = aliases.clone();
++
++                glib::spawn_future_local(async move {
++                    let menu = if menu_path.is_empty() {
++                        query_menu_path(&conn, &service, &path)
++                            .await
++                            .unwrap_or_default()
++                    } else {
++                        menu_path
++                    };
++
++                    if item_is_menu && !menu.is_empty() {
++                        show_menu(&widgets, &service, &menu, None);
++                        return;
++                    }
++
++                    if focus_enabled {
++                        let target = {
++                            let windows = windows.borrow();
++                            find_window(&windows, click_pid, &names, &aliases)
++                        };
++                        if let Some(id) = target {
++                            tracing::debug!(id, "tray: focusing the app window on left click");
++                            if let Err(e) = state.niri().activate_window(id) {
++                                tracing::warn!(%e, id, "tray: cannot focus window");
++                            }
++                            return;
++                        }
++                    }
++
++                    call_method(&conn, &service, &path, "Activate");
++                });
++            });
++        }
++
++        // 中键：插件自己的兜底菜单（应用菜单不靠谱 / 应用退不掉时用）
++        {
++            let handler_conn = conn.clone();
++            let handler_service = service.clone();
++            let handler_item = item.to_string();
++            let handler_tx = tx.clone();
++            let handler_windows = self.windows.clone();
++            let handler_state = self.state.clone();
++            let handler_names = names.clone();
++            let handler_pid = pid;
++            let handler_kill = self.state.config().tray_kill_on_remove();
++            let handler_aliases: Vec<Vec<String>> =
++                self.state.config().tray_window_aliases().to_vec();
++
++            button.connect_button_press_event(move |_, event| {
++                if event.button() != 2 {
++                    return glib::Propagation::Proceed;
++                }
++
++                let menu = gtk::Menu::new();
++
++                // 聚焦窗口（如果这个托盘项对应的窗口还在）
++                if let Some(id) = {
++                    let windows = handler_windows.borrow();
++                    find_window(&windows, handler_pid, &handler_names, &handler_aliases)
++                } {
++                    let entry = gtk::MenuItem::with_label("聚焦窗口");
++                    let state = handler_state.clone();
++                    entry.connect_activate(move |_| {
++                        if let Err(e) = state.niri().activate_window(id) {
++                            tracing::warn!(%e, id, "tray: cannot focus window");
++                        }
++                    });
++                    menu.append(&entry);
++                }
++
++                // 结束进程并移除图标：应用赖着不走时用
++                let label = if handler_pid.is_some() && handler_kill {
++                    "结束进程并移除图标"
++                } else {
++                    "移除图标"
++                };
++                let entry = gtk::MenuItem::with_label(label);
++                let conn = handler_conn.clone();
++                let service = handler_service.clone();
++                let item_key = handler_item.clone();
++                let tx = handler_tx.clone();
++                let pid = handler_pid;
++                entry.connect_activate(move |_| {
++                    let conn = conn.clone();
++                    let service = service.clone();
++                    let item_key = item_key.clone();
++                    let tx = tx.clone();
++                    glib::spawn_future_local(async move {
++                        if let Some(pid) = pid {
++                            let count = kill_process_tree(pid).await;
++                            tracing::debug!(pid, count, "tray: killed app process tree");
++                        }
++                        unregister_item(&conn, &item_key).await;
++                        let _ = tx.send(Event::Removed(service)).await;
++                    });
++                });
++                menu.append(&entry);
++
++                menu.show_all();
++                menu.popup_at_pointer(Some(event));
++                glib::Propagation::Stop
++            });
++        }
++
++        // 右键：弹出应用自己的菜单
++        {
++            let widgets = widgets.clone();
++            let service = service.clone();
++            let path = path.clone();
++            let menu_path = menu_path.clone();
++            let conn = conn.clone();
++
++            button.connect_button_press_event(move |_, event| {
++                if event.button() == 3 {
++                    if !menu_path.is_empty() {
++                        // 常见路径：直接用真实事件弹出（同步，事件生命周期有效）
++                        show_menu(&widgets, &service, &menu_path, Some(event));
++                    } else {
++                        // 属性没读到：异步补查一次
++                        let widgets = widgets.clone();
++                        let service = service.clone();
++                        let path = path.clone();
++                        let conn = conn.clone();
++
++                        glib::spawn_future_local(async move {
++                            let menu = query_menu_path(&conn, &service, &path)
++                                .await
++                                .unwrap_or_default();
++
++                            if !menu.is_empty() {
++                                show_menu(&widgets, &service, &menu, None);
++                            } else {
++                                call_method(&conn, &service, &path, "ContextMenu");
++                            }
++                        });
++                    }
++
++                    return glib::Propagation::Stop;
++                }
++                glib::Propagation::Proceed
++            });
++        }
++
++        // 图标 / 标题 / 状态变化
++        {
++            let widgets = widgets.clone();
++            let state = self.state.clone();
++            let container = self.container.clone();
++            let proxy = proxy.clone();
++
++            glib::spawn_future_local(async move {
++                let mut new_icon = match proxy.receive_signal("NewIcon").await {
++                    Ok(stream) => stream,
++                    Err(_) => return,
++                };
++
++                while new_icon.next().await.is_some() {
++                    let icon_name: String = proxy.get_property("IconName").await.unwrap_or_default();
++                    let theme_path: String = proxy
++                        .get_property("IconThemePath")
++                        .await
++                        .unwrap_or_default();
++                    let pixmap: Vec<(i32, i32, Vec<u8>)> = proxy
++                        .get_property("IconPixmap")
++                        .await
++                        .unwrap_or_default();
++                    let size = tray_icon_size(&state, &container);
++                    if let Some(pb) =
++                        find_icon(state.icon_cache(), &icon_name, &theme_path, &pixmap, size)
++                    {
++                        tracing::debug!("tray: icon refreshed from NewIcon");
++                        widgets.borrow().image.set_from_pixbuf(Some(&pb));
++                    }
++                }
++            });
++        }
++
++        // 有些应用注册之后才把图标数据准备好（也可能不发 NewIcon），
++        // 这里延迟再读一次，避免一直停在兜底图标上
++        {
++            let widgets = widgets.clone();
++            let container = self.container.clone();
++            let state = self.state.clone();
++            let proxy = proxy.clone();
++
++            glib::spawn_future_local(async move {
++                glib::timeout_future_seconds(2).await;
++
++                let icon_name: String = proxy.get_property("IconName").await.unwrap_or_default();
++                let theme_path: String = proxy
++                    .get_property("IconThemePath")
++                    .await
++                    .unwrap_or_default();
++                let pixmap: Vec<(i32, i32, Vec<u8>)> = proxy
++                    .get_property("IconPixmap")
++                    .await
++                    .unwrap_or_default();
++                let size = tray_icon_size(&state, &container);
++                if let Some(pb) = find_icon(state.icon_cache(), &icon_name, &theme_path, &pixmap, size)
++                {
++                    tracing::debug!("tray: icon refreshed from delayed re-read");
++                    widgets.borrow().image.set_from_pixbuf(Some(&pb));
++                }
++            });
++        }
++
++        {
++            let widgets = widgets.clone();
++            let container = self.container.clone();
++            let state = self.state.clone();
++            let proxy = proxy.clone();
++
++            glib::spawn_future_local(async move {
++                let mut new_status = match proxy.receive_signal("NewStatus").await {
++                    Ok(stream) => stream,
++                    Err(_) => return,
++                };
++
++                while let Some(msg) = new_status.next().await {
++                    let status = msg
++                        .body()
++                        .deserialize::<(String,)>()
++                        .map(|(s,)| s)
++                        .unwrap_or_default();
++                    {
++                        let w = widgets.borrow();
++                        let context = w.button.style_context();
++                        context.remove_class("tray-passive");
++                        context.remove_class("tray-attention");
++                        match status.as_str() {
++                            "Passive" => context.add_class("tray-passive"),
++                            "NeedsAttention" => context.add_class("tray-attention"),
++                            _ => {}
++                        }
++                        let visible = status != "Passive" || state.config().show_passive_items();
++                        w.button.set_visible(visible);
++                    }
++                    refresh_container_visibility(&container);
++                }
++            });
++        }
++
++        self.container.add(&button);
++        button.show_all();
++        if passive && !self.state.config().show_passive_items() {
++            button.set_visible(false);
++        }
++        refresh_container_visibility(&self.container);
++
++        {
++            // 调试：确认缓存菜单已被 libdbusmenu 异步填充
++            let widgets = widgets.clone();
++            let item = item.to_string();
++            glib::timeout_add_seconds_local(3, move || {
++                let count = widgets
++                    .borrow()
++                    .menu
++                    .as_ref()
++                    .map(|menu| menu.children().len())
++                    .unwrap_or(0);
++                tracing::debug!(item, count, "tray: cached menu children");
++                glib::ControlFlow::Break
++            });
++        }
++
++        self.index.borrow_mut().names.push(names);
++
++        self.items.insert(item.to_string(), widgets);
++        Self::watch_item_lifetime(conn, service.clone(), item.to_string(), tx.clone());
++        let _ = self.refresh_tx.try_send(());
++        tracing::debug!(
++            item,
++            ?pid,
++            container_visible = self.container.get_visible(),
++            button_visible = button.get_visible(),
++            "tray: item added"
++        );
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn index(names: &[&[&str]]) -> TrayIndex {
++        TrayIndex {
++            pids: Default::default(),
++            names: names
++                .iter()
++                .map(|ns| ns.iter().map(|s| s.to_string()).collect())
++                .collect(),
++        }
++    }
++
++    fn titles(titles: &[&str]) -> Vec<String> {
++        titles.iter().map(|s| s.to_string()).collect()
++    }
++
++    /// 启动假应用（刚 copy 出来的文件偶发 ETXTBSY，重试几次）
++    fn spawn_fake(path: &str) -> std::process::Child {
++        use std::process::Command;
++        for attempt in 0..20 {
++            match Command::new(path).arg("30").spawn() {
++                Ok(child) => return child,
++                Err(e) if e.raw_os_error() == Some(26) && attempt < 19 => {
++                    std::thread::sleep(std::time::Duration::from_millis(50));
++                }
++                Err(e) => panic!("spawn {path}: {e}"),
++            }
++        }
++        unreachable!()
++    }
++
++    /// 等待进程 exec 完成（/proc/<pid>/exe 指向目标二进制），避免测试竞态
++    fn wait_for_exe(pid: i32, path: &str) {
++        let expected = std::path::Path::new(path);
++        for _ in 0..100 {
++            if std::fs::read_link(format!("/proc/{pid}/exe"))
++                .map(|exe| exe == expected)
++                .unwrap_or(false)
++            {
++                return;
++            }
++            std::thread::sleep(std::time::Duration::from_millis(20));
++        }
++    }
++
++    #[test]
++    fn matches_by_app_id() {
++        // 托盘 Id/Title 是 wechat，窗口 app_id 也是 wechat
++        let idx = index(&[&["wechat", "wechat"]]);
++        assert!(group_has_tray(&idx, Some("wechat"), &titles(&[]), &[]));
++    }
++
++    #[test]
++    fn matches_by_exact_title() {
++        let idx = index(&[&["wechat", "微信"]]);
++        // 托盘标题和窗口标题完全一样
++        assert!(group_has_tray(&idx, Some("app"), &titles(&["微信"]), &[]));
++        // 标题只做精确匹配：浏览器标题里出现关键词不算
++        assert!(!group_has_tray(&idx, Some("zen"), &titles(&["WeChat Web"]), &[]));
++    }
++
++    #[test]
++    fn matches_by_substring_for_app_id() {
++        let idx = index(&[&["tray-icon tray app clash-verge-rev-tray", ""]]);
++        assert!(group_has_tray(
++            &idx,
++            Some("clash-verge-rev"),
++            &titles(&[]),
++            &[]
++        ));
++    }
++
++    #[test]
++    fn manual_aliases() {
++        let idx = index(&[&["wechat", "wechat"]]);
++        let aliases = vec![vec!["wechat".to_string(), "weixin".to_string()]];
++        assert!(group_has_tray(&idx, Some("weixin"), &titles(&[]), &aliases));
++        assert!(!group_has_tray(&idx, Some("kitty"), &titles(&[]), &aliases));
++    }
++
++    #[test]
++    fn collects_process_tree() {
++        use std::process::Command;
++
++        let mut child = Command::new("sh")
++            .arg("-c")
++            .arg("sleep 30 & sleep 30 & wait")
++            .spawn()
++            .expect("spawn test process");
++        let pid = child.id() as i32;
++        std::thread::sleep(std::time::Duration::from_millis(300));
++
++        let tree = collect_process_tree(pid);
++
++        let _ = child.kill();
++        let _ = child.wait();
++
++        assert!(tree.contains(&pid), "tree = {tree:?}");
++        assert!(tree.len() >= 3, "tree = {tree:?}");
++    }
++
++    #[test]
++    fn same_binary_matches_other_instances() {
++        use std::process::Command;
++
++        // 复制一份独立的可执行文件，避免匹配到系统里同名的进程
++        let fake = format!("/tmp/niri-taskbar-test-same-{}", std::process::id());
++        std::fs::copy("/usr/bin/sleep", &fake).expect("copy sleep");
++        let mut child1 = spawn_fake(&fake);
++        let mut child2 = spawn_fake(&fake);
++        wait_for_exe(child1.id() as i32, &fake);
++        wait_for_exe(child2.id() as i32, &fake);
++
++        let pids = same_binary_pids(child1.id() as i32);
++
++        let _ = child1.kill();
++        let _ = child2.kill();
++        let _ = child1.wait();
++        let _ = child2.wait();
++        let _ = std::fs::remove_file(&fake);
++
++        assert!(
++            pids.contains(&(child2.id() as i32)),
++            "pids = {pids:?}",
++        );
++    }
++
++    #[test]
++    fn terminates_process_tree() {
++        use std::process::Command;
++
++        let fake = format!("/tmp/niri-taskbar-test-kill-{}", std::process::id());
++        std::fs::copy("/usr/bin/sleep", &fake).expect("copy sleep");
++        let mut child1 = spawn_fake(&fake);
++        let mut child2 = spawn_fake(&fake);
++        wait_for_exe(child1.id() as i32, &fake);
++        wait_for_exe(child2.id() as i32, &fake);
++
++        let mut pids = collect_process_tree(child1.id() as i32);
++        for pid in same_binary_pids(child1.id() as i32) {
++            if !pids.contains(&pid) {
++                pids.push(pid);
++            }
++        }
++
++        send_signal(&pids, "-TERM");
++        std::thread::sleep(std::time::Duration::from_millis(400));
++
++        let alive1 = process_alive(child1.id() as i32);
++        let alive2 = process_alive(child2.id() as i32);
++
++        send_signal(&pids, "-KILL");
++        let _ = child1.wait();
++        let _ = child2.wait();
++        let _ = std::fs::remove_file(&fake);
++
++        assert!(!alive1 && !alive2, "alive: {alive1} {alive2}");
++    }
++
++    #[test]
++    fn find_icon_without_data_returns_none() {
++        let cache = crate::icon::Cache::default();
++        assert!(find_icon(&cache, "", "", &[], 16).is_none());
++        // 空 pixmap 数据同样不算找到
++        assert!(find_icon(&cache, "", "", &[(16, 16, Vec::new())], 16).is_none());
++    }
++
++    #[test]
++    fn find_window_by_pid_and_name() {
++        let windows = vec![
++            crate::WindowEntry {
++                id: 1,
++                app_id: Some("ghostty".into()),
++                pid: Some(100),
++                title: Some("term".into()),
++            },
++            crate::WindowEntry {
++                id: 2,
++                app_id: Some("wechat".into()),
++                pid: Some(200),
++                title: Some("微信".into()),
++            },
++        ];
++
++        // PID 优先
++        assert_eq!(find_window(&windows, Some(100), &["wechat".into()], &[]), Some(1));
++        // 名字匹配 app_id
++        assert_eq!(find_window(&windows, None, &["wechat".into()], &[]), Some(2));
++        // 标题精确匹配
++        assert_eq!(find_window(&windows, None, &["微信".into()], &[]), Some(2));
++        // 不相关
++        assert_eq!(find_window(&windows, None, &["telegram".into()], &[]), None);
++    }
++
++    #[test]
++    fn no_false_positive() {
++        let idx = index(&[&["fcitx", "Fcitx"]]);
++        assert!(!group_has_tray(&idx, Some("kitty"), &titles(&["kitty"]), &[]));
 +    }
 +}

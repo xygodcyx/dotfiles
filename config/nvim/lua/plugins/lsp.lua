@@ -55,6 +55,7 @@ return {
 
 			return {
 				servers = {
+                    bashIde = {},
 					clangd = {
 						capabilities = capabilities, -- 关键！把 cmp 的能力声明传给 clangd
 						cmd = {

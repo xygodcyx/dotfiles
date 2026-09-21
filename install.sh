@@ -15,4 +15,7 @@ ln -sf ~/dotfiles/config/swaylock ~/.config/swaylock
 ln -sf ~/dotfiles/home/.zshrc ~/.zshrc
 ln -sf ~/dotfiles/home/.gitconfig ~/.gitconfig
 
+sudo cp -r ~/dotfiles/etc/. /etc/
+sudo systemctl daemon-reload
+
 rm -rf config/niri/niri config/nvim/nvim config/waybar/waybar config/sunsetr/sunsetr config/ghostty/ghostty config/zellig/zellij config/fuzzel/fuzzel config/swaylock/swaylock

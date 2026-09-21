@@ -14,6 +14,13 @@
 #           （托盘图标和任务栏在同一个模块里，不再需要 waybar 的 tray 模块）
 #           相关配置：tray_icon_size、show_passive_items
 #           依赖：libdbusmenu-gtk3（waybar 本来就依赖它）
+#        7. hide_apps_with_tray：有托盘图标的应用（按 PID / 名字匹配）隐藏其窗口按钮
+#           tray_window_aliases 可以手动补充名字别名，例如 [["wechat","微信"]]
+#        8. tray_left_click_focus：左键托盘图标直接聚焦对应窗口（应用 Activate 失效时的兜底）
+#        9. 托盘项生命周期用 D-Bus NameOwnerChanged 事件监听（按名字订阅 arg0）
+#       10. 中键托盘图标：插件自己的兜底菜单（聚焦窗口 / 结束进程并移除图标）
+#       11. tray_enabled 开关：false = 纯 niri-taskbar（不创建托盘，不占用 SNI watcher）
+#           结束进程会清理整棵进程树 + 同一可执行文件的历史残留（解释器类除外）
 #
 #  用法：build-niri-taskbar.sh
 #  产物：~/.local/lib/waybar/libniri_taskbar.so（构建完重启 waybar）
@@ -42,6 +49,10 @@ if ! git -C "$SRC" fetch -qf origin pull/34/head:pr34 2>/dev/null; then
 fi
 
 git -C "$SRC" checkout -qf pr34 2>/dev/null || git -C "$SRC" checkout -qf main
+
+# 清掉上一次补丁留下的未跟踪文件（比如新增的 src/tray.rs），
+# 否则 git apply 会因为"文件已存在"失败；target/ 在 .gitignore 里不会被删
+git -C "$SRC" clean -fdq
 
 # 先试应用补丁，失败时给出清晰提示（不会影响已安装的 .so）
 if ! git -C "$SRC" apply --check "$PATCH" 2>/dev/null; then

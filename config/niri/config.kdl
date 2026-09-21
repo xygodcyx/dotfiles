@@ -295,6 +295,10 @@ layout {
 // See the binds section below for more spawn examples.
 
 // This line starts waybar, a commonly used bar for Wayland compositors.
+spawn-at-startup "sh" "-c" "sleep 3 && /home/lyorn/Code/WebProjects/Weport/release/Weport-1.0.0-x64/weport --background"
+
+spawn-sh-at-startup "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=niri"
+spawn-sh-at-startup "systemctl --user start graphical-session.target & /usr/lib/xdg-desktop-portal-gnome"
 spawn-at-startup "xrdb" "-merge" ".Xresources"
 spawn-at-startup "awww-daemon"
 spawn-sh-at-startup "awww-daemon -n overview"
@@ -422,6 +426,8 @@ window-rule {
     match app-id="mpv"
     match app-id="steam_app_default"
     match app-id="zen"
+    match app-id="dev.eden_emu.eden"
+    match app-id="eden"
     opacity 1.0
 }
 
