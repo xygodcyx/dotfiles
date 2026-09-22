@@ -5,7 +5,7 @@ return {
 			local dap = require("dap")
 			-- 必须指定终端窗口打开方式，承载内置控制台
 			dap.defaults.fallback.switchbuf = "noop-if-visible,usetab,uselast"
-			dap.defaults.fallback.terminal_win_cmd = "tabnew | set filetype=dap-terminal"
+			dap.defaults.fallback.terminal_win_cmd = "tabnew | set filetype=dap-terminal" -- 配合autocmd能解决dap-console的打印问题
 
 			-- codelldb 适配器配置
 			dap.adapters.codelldb = {
@@ -169,24 +169,25 @@ return {
 		"rcarriga/nvim-dap-ui",
 		dependencies = { "mfussenegger/nvim-dap", "nvim-neotest/nvim-nio" },
 		lazy = false, -- 关键：不要因为 keys 而懒加载
-		config = function()
+		opts = {
+			layouts = {
+				{
+					elements = { "scopes", "watches", "stacks", "breakpoints", "repl" },
+					size = 40,
+					position = "left",
+				},
+				{
+					elements = { "console" },
+					size = 10,
+					position = "bottom",
+				},
+			},
+		},
+		config = function(_, opts)
 			local dap = require("dap")
 			local dapui = require("dapui")
 
-			dapui.setup({
-				layouts = {
-					{
-						elements = { "scopes", "breakpoints", "stacks", "watches", "repl" },
-						size = 40,
-						position = "left",
-					},
-					{
-						elements = { "console" },
-						size = 10,
-						position = "bottom",
-					},
-				},
-			})
+			dapui.setup(opts)
 
 			-- 把 listener 放到这里，setup 之后再注册
 			dap.listeners.after.event_initialized["dapui_config"] = function()
@@ -266,6 +267,18 @@ return {
 				"<leader>de",
 				function()
 					require("dapui").eval()
+					-- 延迟一下，等浮动窗口完全创建
+					vim.defer_fn(function()
+						-- 找 dapui 的 eval/hover 浮动窗口并聚焦
+						for _, win in ipairs(vim.api.nvim_list_wins()) do
+							local buf = vim.api.nvim_win_get_buf(win)
+							local ft = vim.bo[buf].filetype
+							if ft == "dapui_eval" or ft == "dapui_hover" then
+								vim.api.nvim_set_current_win(win)
+								return
+							end
+						end
+					end, 30)
 				end,
 				mode = { "n", "v" },
 				desc = "求值表达式",

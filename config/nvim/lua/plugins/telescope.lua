@@ -26,6 +26,7 @@ return {
 					"--hidden", -- 让 live_grep 也搜索隐藏文件
 				},
 				file_ignore_patterns = {
+                    "vendor",
 					"node_modules",
 					"%.lock",
 					"%.jpg",
@@ -57,8 +58,8 @@ return {
 
 			-- 快捷键映射
 			local builtin = require("telescope.builtin")
-			vim.keymap.set("n", "<leader><leader>", builtin.buffers, { desc = "Find Buffers" })
-			vim.keymap.set("n", "<leader>ff", builtin.find_files, { desc = "Find Files" })
+			vim.keymap.set("n", "<leader><leader>", builtin.find_files, { desc = "Find Files" })
+            vim.keymap.set("n", "<leader>fb", builtin.buffers, { desc = "Find Buffers" })
 			vim.keymap.set("n", "<leader>fg", builtin.live_grep, { desc = "Live Grep" })
 			vim.keymap.set("n", "<leader>fh", builtin.help_tags, { desc = "Help Tags" })
 		end,

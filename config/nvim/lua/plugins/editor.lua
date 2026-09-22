@@ -378,4 +378,22 @@ return {
 			},
 		},
 	},
+	{
+		"folke/flash.nvim",
+		event = "VeryLazy",
+		opts = {},
+		-- 按 `s` 进入 Flash 跳转模式
+		keys = {
+			{
+				"/",
+				mode = { "n", "x", "o" },
+				function()
+					require("flash").jump({
+						search = { mode = "search" },
+					})
+				end,
+				desc = "Flash",
+			},
+		},
+	},
 }
