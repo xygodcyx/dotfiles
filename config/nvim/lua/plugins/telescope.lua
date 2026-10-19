@@ -55,6 +55,7 @@ return {
 					".cache",
 					"node_modules",
 					"%.meta",
+					"%.scene",
 					"%.plist",
 					"%.DS_Store",
 					"%.lock",
