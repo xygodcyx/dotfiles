@@ -391,10 +391,8 @@ return {
 
 				-- The settings send to ESLint LSP. See below part for details.
 				settings = {
-					validate = "on",
-					packageManager = "pnpm",
-					useESLintClass = true,
-					experimental = { useFlatConfig = true },
+					useESLintClass = false,
+					experimental = { useFlatConfig = false },
 					codeAction = {
 						disableRuleComment = {
 							enable = true,
