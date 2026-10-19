@@ -44,6 +44,7 @@ return {
 				},
 				file_ignore_patterns = {
 					"vendor",
+					"static",
 					"libs",
 					"build",
 					"dist",

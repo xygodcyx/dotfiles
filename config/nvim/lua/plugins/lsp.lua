@@ -394,10 +394,7 @@ return {
 					validate = "on",
 					packageManager = "pnpm",
 					useESLintClass = true,
-					-- useFlatConfig = function(bufnr)
-					-- 	return M.use_flat_config(bufnr)
-					-- end,
-					experimental = { useFlatConfig = false },
+					experimental = { useFlatConfig = true },
 					codeAction = {
 						disableRuleComment = {
 							enable = true,
@@ -419,6 +416,7 @@ return {
 					-- 	return M.resolve_node_path()
 					-- end,
 					workingDirectory = { mode = "location" },
+					nodePath = "node_modules/.bin/eslint",
 					-- workspaceFolder = function(bufnr)
 					-- 	local git_dir = M.resolve_git_dir(bufnr)
 					-- 	return {
