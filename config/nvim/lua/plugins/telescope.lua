@@ -43,6 +43,9 @@ return {
 					"--hidden", -- 让 live_grep 也搜索隐藏文件
 				},
 				file_ignore_patterns = {
+					"temp",
+					"library",
+					"setting",
 					"vendor",
 					"static",
 					"libs",

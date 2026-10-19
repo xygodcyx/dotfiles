@@ -414,7 +414,7 @@ return {
 					-- 	return M.resolve_node_path()
 					-- end,
 					workingDirectory = { mode = "location" },
-					nodePath = "node_modules/.bin/eslint",
+					-- nodePath = "node_modules/.bin/eslint",
 					-- workspaceFolder = function(bufnr)
 					-- 	local git_dir = M.resolve_git_dir(bufnr)
 					-- 	return {
