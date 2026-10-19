@@ -1,4 +1,15 @@
--- lua/plugins/telescope.lua
+local function path_with_modified(opts, path)
+	local bufnr = vim.fn.bufnr(path)
+	local suffix = ""
+
+	if bufnr ~= -1 and vim.api.nvim_buf_is_valid(bufnr) then
+		if vim.bo[bufnr].modified then
+			suffix = " [+]"
+		end
+	end
+
+	return path .. suffix
+end
 return {
 	{
 		"nvim-telescope/telescope.nvim",
@@ -8,13 +19,19 @@ return {
 			{
 				"nvim-telescope/telescope-fzf-native.nvim",
 				build = "make",
-				cond = function()
-					return vim.fn.executable("make") == 1
-				end,
 			},
 		},
 		opts = {
+			extensions = {
+				fzf = {
+					fuzzy = true,
+					override_generic_sorter = true,
+					override_file_sorter = true,
+					case_mode = "smart_case",
+				},
+			},
 			defaults = {
+				path_display = path_with_modified,
 				vimgrep_arguments = {
 					"rg",
 					"--color=never",
@@ -26,7 +43,12 @@ return {
 					"--hidden", -- 让 live_grep 也搜索隐藏文件
 				},
 				file_ignore_patterns = {
-                    "vendor",
+					"vendor",
+					"libs",
+					"build",
+					"dist",
+					"install",
+					".cache",
 					"node_modules",
 					"%.lock",
 					"%.jpg",
@@ -54,12 +76,11 @@ return {
 			local telescope = require("telescope")
 			telescope.setup(opts)
 			-- 加载 fzf-native 扩展
-			pcall(telescope.load_extension, "fzf")
-
+			pcall(require("telescope").load_extension, "fzf")
 			-- 快捷键映射
 			local builtin = require("telescope.builtin")
 			vim.keymap.set("n", "<leader><leader>", builtin.find_files, { desc = "Find Files" })
-            vim.keymap.set("n", "<leader>fb", builtin.buffers, { desc = "Find Buffers" })
+			vim.keymap.set("n", "<leader>fb", builtin.buffers, { desc = "Find Buffers" })
 			vim.keymap.set("n", "<leader>fg", builtin.live_grep, { desc = "Live Grep" })
 			vim.keymap.set("n", "<leader>fh", builtin.help_tags, { desc = "Help Tags" })
 		end,

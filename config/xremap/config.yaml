@@ -1,0 +1,10 @@
+modmap:
+  - remap:
+      CapsLock: CONTROL_L
+    device:
+      only: ["HS6209 2.4G Wireless Receiver", "AT Translated Set 2 keyboard"]
+keymap:
+  - remap:
+      # Ctrl-P: Up
+      # Ctrl-N: Down
+

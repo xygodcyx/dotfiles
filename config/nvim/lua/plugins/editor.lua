@@ -4,6 +4,11 @@ return {
 
 		"nvimdev/lspsaga.nvim",
 
+		dependencies = {
+			"nvim-treesitter/nvim-treesitter", -- optional
+			"nvim-tree/nvim-web-devicons", -- optional
+		},
+
 		config = function()
 			-- 1. 配置 lspsaga
 			require("lspsaga").setup({
@@ -15,12 +20,12 @@ return {
 					"InsertEnter",
 					"CursorMoved",
 				},
-				-- 诊断配置
-				diagnostic = {
-					on_insert = false,
-					show_source = true,
-					jump_float = true,
-				},
+				-- -- 诊断配置
+				-- diagnostic = {
+				-- 	on_insert = false,
+				-- 	show_source = true,
+				-- 	jump_float = true,
+				-- },
 				-- 代码操作
 				code_action = {
 					num_shortcut = true,
@@ -49,18 +54,21 @@ return {
 					},
 					edit = "<C-c>o",
 				},
-				-- 面包屑
-				breadcrumbs = {
-					enable = true,
-					icon = ">",
-					separator = "▸",
-				},
+				-- -- 面包屑
+				-- breadcrumbs = {
+				-- 	enable = true,
+				-- 	icon = ">",
+				-- 	separator = "▸",
+				-- },
 				-- 大纲
 				outline = {
 					keys = {
 						jump = "<CR>",
 						quit = "q",
 					},
+					auto_close = true,
+					close_after_jump = true,
+					layout = "float",
 				},
 				-- 调用层级
 				call_hierarchy = {
@@ -77,8 +85,22 @@ return {
 			})
 
 			-- Hover 文档
-			vim.keymap.set("n", "K", "<cmd>Lspsaga hover_doc<CR>", { desc = "Hover Documentation" })
-
+			vim.keymap.set("n", "K", function()
+				vim.cmd("Lspsaga hover_doc")
+				-- 延迟等浮动窗口创建完，再聚焦
+				vim.defer_fn(function()
+					for _, win in ipairs(vim.api.nvim_list_wins()) do
+						local buf = vim.api.nvim_win_get_buf(win)
+						local ft = vim.bo[buf].filetype
+						local cfg = vim.api.nvim_win_get_config(win)
+						-- 只找浮动窗口 + markdown filetype
+						if cfg.relative ~= "" and ft == "markdown" then
+							vim.api.nvim_set_current_win(win)
+							return
+						end
+					end
+				end, 30)
+			end, { desc = "Hover Documentation (聚焦窗口)" })
 			-- 预览定义
 			vim.keymap.set("n", "gD", "<cmd>Lspsaga peek_definition<CR>", { desc = "Peek Definition" })
 
@@ -124,10 +146,6 @@ return {
 			-- 面包屑切换
 			vim.keymap.set("n", "<leader>bb", "<cmd>Lspsaga toggle_breadcrumbs<CR>", { desc = "Toggle Breadcrumbs" })
 		end,
-		dependencies = {
-			"nvim-treesitter/nvim-treesitter", -- optional
-			"nvim-tree/nvim-web-devicons", -- optional
-		},
 	},
 
 	{
@@ -174,13 +192,14 @@ return {
 	{
 		"abecodes/tabout.nvim",
 		dependencies = { -- These are optional
+			"hrsh7th/nvim-cmp",
 			"nvim-treesitter/nvim-treesitter",
 			"L3MON4D3/LuaSnip",
-			"hrsh7th/nvim-cmp",
 		},
-		event = "InsertEnter", -- 推荐改为 InsertEnter 确保进入插入模式即挂载成功
-		priority = 1000,
-		lazy = false,
+
+		opt = true, -- Set this to true if the plugin is optional
+		event = "InsertEnter", -- Set the event to 'InsertCharPre' for better compatibility
+		priority = 1,
 		config = function()
 			require("tabout").setup({
 				tabkey = "<Tab>", -- key to trigger tabout, set to an empty string to disable
@@ -189,8 +208,8 @@ return {
 				act_as_shift_tab = false, -- reverse shift content if tab out is not possible (if your keyboard/terminal supports <S-Tab>)
 				default_tab = "<C-t>", -- shift default action (only at the beginning of a line, otherwise <TAB> is used)
 				default_shift_tab = "<C-d>", -- reverse shift default action,
-				enable_backwards = true, -- well ...
-				completion = true, -- if the tabkey is used in a completion pum
+				enable_backwards = false, -- well ...
+				completion = false, -- if the tabkey is used in a completion pum
 				tabouts = {
 					{ open = "'", close = "'" },
 					{ open = '"', close = '"' },
@@ -200,69 +219,18 @@ return {
 					{ open = "{", close = "}" },
 					{ open = "<", close = ">" },
 				},
-				ignore_beginning = false, --[[ if the cursor is at the beginning of a filled element it will rather tab out than shift the content ]]
-				exclude = {}, -- tabout will ignore these filetypes
+				ignore_beginning = true, --[[ if the cursor is at the beginning of a filled element it will rather tab out than shift the content ]]
 			})
 		end,
 	},
+
 	{
 		"L3MON4D3/LuaSnip",
-		dependencies = { "rafamadriz/friendly-snippets" },
-		config = function()
-			require("luasnip").config.setup({
-				history = true,
-				update_events = "TextChanged,TextChangedI",
-			})
-			require("luasnip.loaders.from_vscode").lazy_load({})
-		end,
 		keys = function()
 			-- Disable default tab keybinding in LuaSnip
 			return {}
 		end,
 	},
-	-- {
-	-- 	"kevinhwang91/nvim-ufo",
-	-- 	dependencies = {
-	-- 		"kevinhwang91/promise-async",
-	-- 	},
-	-- 	event = "VeryLazy",
-	-- 	opts = {
-	-- 		-- 1. 显式关闭打开文件时的自动折叠（关键配置）
-	-- 		close_fold_kinds_for_ft = {
-	-- 			default = {}, -- 确保默认不关闭任何 kind（如 comment, region 等）
-	-- 		},
-	-- 		provider_selector = function(bufnr, filetype, buftype)
-	-- 			-- 使用 indent 作为 fallback，避免 treesitter 解析延迟导致的全屏折叠
-	-- 			return { "treesitter", "indent" }
-	-- 		end,
-	-- 	},
-	-- 	config = function(_, opts)
-	-- 		-- 2. 基础 Option 设置
-	-- 		vim.o.foldcolumn = "1"
-	-- 		vim.o.foldlevel = 99
-	-- 		vim.o.foldlevelstart = 99
-	-- 		vim.o.foldenable = true
-	--
-	-- 		local ufo = require("ufo")
-	-- 		opts = opts == nil and {} or opts
-	-- 		ufo.setup(opts)
-	--
-	-- 		-- 3. 等待 LSP Attach 完成后再解开折叠（解决 LSP 异步覆盖问题）
-	-- 		vim.api.nvim_create_autocmd("LspAttach", {
-	-- 			callback = function(args)
-	-- 				local bufnr = args.buf
-	-- 				vim.schedule(function()
-	-- 					if vim.api.nvim_buf_is_valid(bufnr) then
-	-- 						vim.wo.foldlevel = 99
-	-- 						ufo.openAllFolds()
-	-- 					end
-	-- 				end)
-	-- 			end,
-	-- 		})
-	--
-	-- 		return opts
-	-- 	end,
-	-- },
 	{
 		"kylechui/nvim-surround",
 		version = "^4.0.0", -- Use for stability; omit to use `main` branch for the latest features
@@ -291,22 +259,22 @@ return {
 	},
 
 	-- 显示 Git 信息
-	{
-		"f-person/git-blame.nvim",
-		config = function()
-			vim.keymap.set("n", "<leader>gb", ":GitBlameToggle<CR>", { desc = "Toggle Git Blame" })
-		end,
-	},
+	-- {
+	-- 	"f-person/git-blame.nvim",
+	-- 	config = function()
+	-- 		vim.keymap.set("n", "<leader>gb", ":GitBlameToggle<CR>", { desc = "Toggle Git Blame" })
+	-- 	end,
+	-- },
 
 	-- Git 操作界面
-	{
-		"NeogitOrg/neogit",
-		dependencies = { "nvim-lua/plenary.nvim" },
-		config = function()
-			require("neogit").setup()
-			vim.keymap.set("n", "<leader>gg", ":Neogit<CR>", { desc = "Open Neogit" })
-		end,
-	},
+	-- {
+	-- 	"NeogitOrg/neogit",
+	-- 	dependencies = { "nvim-lua/plenary.nvim" },
+	-- 	config = function()
+	-- 		require("neogit").setup()
+	-- 		vim.keymap.set("n", "<leader>gg", ":Neogit<CR>", { desc = "Open Neogit" })
+	-- 	end,
+	-- },
 
 	{
 		"ray-x/lsp_signature.nvim",
@@ -341,21 +309,21 @@ return {
 			{ "=", "<Plug>(expand_region_expand)", mode = { "n", "x" }, desc = "扩大选区" },
 		},
 		init = function()
-			vim.g.expand_region_use_default_mappings = 0
-			vim.g.expand_region_text_objects = {
-				["iw"] = 0,
-				["iW"] = 0,
-				['i"'] = 0,
-				["i'"] = 0,
-				["i]"] = 1,
-				["ib"] = 1,
-				["iB"] = 1,
-				["ii"] = 0, -- 缩进块内部
-				["ai"] = 0, -- 缩进块周围
-				["il"] = 0,
-				["ip"] = 0,
-			} -- 这里可以设置 g:expand_region_text_objects 等全局变量
-			-- 具体配置见下方“自定义扩展层级”
+			vim.g.expand_region_use_default_mappings = 1
+			-- vim.g.expand_region_text_objects = {
+			-- 	["iw"] = 0,
+			-- 	["iW"] = 0,
+			-- 	['i"'] = 1,
+			-- 	["i'"] = 1,
+			-- 	["i]"] = 1,
+			-- 	["i<"] = 1,
+			-- 	["ib"] = 1,
+			-- 	["iB"] = 1,
+			-- 	["ii"] = 1, -- 缩进块内部
+			-- 	["ai"] = 1, -- 缩进块周围
+			-- 	["il"] = 1,
+			-- 	["ip"] = 1,
+			-- } -- 这里可以设置 g:expand_region_text_objects 等全局变量
 		end,
 	},
 	{
@@ -379,21 +347,133 @@ return {
 		},
 	},
 	{
-		"folke/flash.nvim",
-		event = "VeryLazy",
-		opts = {},
-		-- 按 `s` 进入 Flash 跳转模式
+		"nvim-lua/plenary.nvim",
+	},
+	{
+		"antosha417/nvim-lsp-file-operations",
+		cmd = "LFO",
+		-- Uncomment whichever supported plugin(s) you use
+		dependencies = {
+			-- "nvim-tree/nvim-tree.lua",
+			-- "nvim-neo-tree/neo-tree.nvim",
+			"simonmclean/triptych.nvim",
+		},
+		config = function()
+			require("lsp-file-operations").setup()
+		end,
+	},
+	{
+		"simonmclean/triptych.nvim",
+		dependencies = {
+			"nvim-tree/nvim-web-devicons", -- optional for icons
+			"antosha417/nvim-lsp-file-operations", -- optional LSP integration
+		},
+		opts = {}, -- config options here
 		keys = {
-			{
-				"/",
-				mode = { "n", "x", "o" },
-				function()
-					require("flash").jump({
-						search = { mode = "search" },
-					})
-				end,
-				desc = "Flash",
-			},
+			{ "<leader>e", ":Triptych<CR>" },
 		},
 	},
+	-- {
+	-- 	"chaoren/vim-wordmotion",
+	-- 	event = "VeryLazy",
+	-- 	init = function()
+	-- 		-- vim.g.wordmotion_prefix = "<leader>" -- 可选：给 wordmotion 加前缀键
+	-- 		-- 不加前缀直接覆盖 w/e/b 也可以：
+	-- 		-- vim.g.wordmotion_nomap = 0
+	-- 	end,
+	-- },
+
+	-- {
+	-- 	"folke/flash.nvim",
+	-- 	event = "VeryLazy",
+	-- 	opts = {
+	-- 		modes = {
+	-- 			char = {
+	-- 				jump_labels = true,
+	-- 			},
+	-- 		},
+	-- 	},
+	-- 	keys = {
+	-- 		{
+	-- 			"s",
+	-- 			mode = { "n", "x", "o" },
+	--
+	-- 			function()
+	-- 				require("flash").jump({
+	-- 					search = { mode = "search" },
+	-- 				})
+	-- 			end,
+	-- 			desc = "Flash",
+	-- 		},
+	-- 	},
+	-- },
+	-- {
+	-- "nvim-focus/focus.nvim",
+	-- enable = false,
+	-- config = function()
+	-- 	require("focus").setup({
+	-- 		autoresize = {
+	-- 			enable = true,
+	-- 			width = 0,
+	-- 			height = 0,
+	-- 			minwidth = 0,
+	-- 			minheight = 0,
+	-- 			focusedwindow_minwidth = 0,
+	-- 			focusedwindow_minheight = 0,
+	-- 			height_quickfix = 10,
+	-- 			equalise_min_cols = 0,
+	-- 			equalise_min_rows = 0,
+	-- 		},
+	-- 		commands = true,
+	-- 		enable = true,
+	-- 		split = { bufnew = false, tmux = false },
+	-- 		ui = {
+	-- 			absolutenumber_unfocussed = false,
+	-- 			colorcolumn = { enable = false, list = "+1" },
+	-- 			cursorcolumn = false,
+	-- 			cursorline = true,
+	-- 			hybridnumber = false,
+	-- 			number = false,
+	-- 			relativenumber = false,
+	-- 			signcolumn = false,
+	-- 			winhighlight = false,
+	-- 		},
+	-- 	})
+	-- 	local augroup = vim.api.nvim_create_augroup("FocusDisable", { clear = true })
+	--
+	-- 	local function should_disable_focus()
+	-- 		local name = vim.api.nvim_buf_get_name(0)
+	-- 		local buftype = vim.bo.buftype
+	--
+	-- 		-- dap-ui 左侧面板：DAP Watches / Stacks / Breakpoints / Scopes
+	-- 		if name:match("/DAP ") then
+	-- 			return true
+	-- 		end
+	-- 		-- dap-terminal / dap-repl
+	-- 		if name:match("%[dap%-terminal%]") then
+	-- 			return true
+	-- 		end
+	-- 		if name:match("%[dap%-repl") then
+	-- 			return true
+	-- 		end
+	--
+	-- 		-- 兜底：nofile / prompt / terminal 类型的浮动/工具窗口
+	-- 		if vim.tbl_contains({ "nofile", "prompt", "terminal", "popup" }, buftype) then
+	-- 			return true
+	-- 		end
+	--
+	-- 		return false
+	-- 	end
+	--
+	-- 	vim.api.nvim_create_autocmd({ "WinEnter", "BufWinEnter" }, {
+	-- 		group = augroup,
+	-- 		callback = function()
+	-- 			if should_disable_focus() then
+	-- 				vim.w.focus_disable = true
+	-- 				vim.b.focus_disable = true
+	-- 			end
+	-- 		end,
+	-- 		desc = "Disable focus autoresize for dap-ui and utility windows",
+	-- 	})
+	-- end,
 }

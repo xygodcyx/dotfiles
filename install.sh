@@ -11,6 +11,9 @@ ln -sf ~/dotfiles/config/fuzzel ~/.config/fuzzel
 ln -sf ~/dotfiles/config/mako ~/.config/mako
 ln -sf ~/dotfiles/config/matugen ~/.config/matugen
 ln -sf ~/dotfiles/config/swaylock ~/.config/swaylock
+ln -sf ~/dotfiles/config/yay ~/.config/yay
+ln -sf ~/dotfiles/config/kitty ~/.config/kitty
+ln -sf ~/dotfiles/config/xremap ~/.config/xremap
 
 ln -sf ~/dotfiles/home/.zshrc ~/.zshrc
 ln -sf ~/dotfiles/home/.gitconfig ~/.gitconfig
@@ -18,4 +21,4 @@ ln -sf ~/dotfiles/home/.gitconfig ~/.gitconfig
 sudo cp -r ~/dotfiles/etc/. /etc/
 sudo systemctl daemon-reload
 
-rm -rf config/niri/niri config/nvim/nvim config/waybar/waybar config/sunsetr/sunsetr config/ghostty/ghostty config/zellig/zellij config/fuzzel/fuzzel config/swaylock/swaylock
+rm -rf config/niri/niri config/nvim/nvim config/waybar/waybar config/sunsetr/sunsetr config/ghostty/ghostty config/zellig/zellij config/fuzzel/fuzzel config/swaylock/swaylock config/yay/yay config/kitty/kitty config/xremap/xremap

@@ -15,9 +15,9 @@ return {
 					command = vim.fn.stdpath("data") .. "/mason/bin/codelldb",
 					args = { "--port", "${port}" },
 				},
-				expressions = {
-					native = true,
-				},
+				-- expressions = {
+				-- 	native = true,
+				-- },
 				detached = false,
 			}
 
@@ -239,21 +239,6 @@ return {
 					end
 				end,
 			})
-
-			-- 自滚顶脚本
-			-- local dap_scroll_group = vim.api.nvim_create_augroup("DapConsoleScroll", { clear = true })
-			-- vim.api.nvim_create_autocmd({ "TextChangedT", "BufEnter", "BufWinEnter" }, {
-			-- 	group = dap_scroll_group,
-			-- 	pattern = "*",
-			-- 	callback = function(args)
-			-- 		if vim.bo[args.buf].filetype == "dapui_console" then
-			-- 			local wins = vim.fn.win_findbuf(args.buf)
-			-- 			for _, win in ipairs(wins) do
-			-- 				pcall(vim.api.nvim_win_set_cursor, win, { 1, 0 })
-			-- 			end
-			-- 		end
-			-- 	end,
-			-- })
 		end,
 		keys = {
 			{

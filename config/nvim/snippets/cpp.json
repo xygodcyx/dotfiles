@@ -1,0 +1,79 @@
+{
+    "formatoff": {
+        "prefix": "formatoff",
+        "body": [
+            "// clang-format off",
+            "// clang-format on"
+        ]
+    },
+    "cout log": {
+        "prefix": "coutt",
+        "body": [
+            "std::cout << ${1} << std::endl;"
+        ]
+    },
+    "if": {
+        "prefix": "if",
+        "body": [
+            "if (${1}) {",
+            "  ${2}",
+            "}"
+        ]
+    },
+    "for": {
+        "prefix": "for",
+        "body": [
+            "for (int ${1:i} = 0; ${1} < ${2:length}; ${1}++) {",
+            "  ${3}",
+            "}"
+        ]
+    },
+    "forin": {
+        "prefix": "forin",
+        "body": [
+            "for (auto ${1:value} : ${2:itor}) {",
+            "  ${3}",
+            "}"
+        ]
+    },
+    "while": {
+        "prefix": "while",
+        "body": [
+            "while (${1}) {",
+            "  ${3}",
+            "}"
+        ]
+    },
+    "switch": {
+        "prefix": "switch",
+        "body": [
+            "switch (${1}) {",
+            "  ${2}",
+            "}"
+        ]
+    },
+    "function": {
+        "prefix": "fvoid",
+        "body": [
+            "${1:void} ${2:name} ( ${3} ) {",
+            "  ${4}",
+            "}"
+        ]
+    },
+    "class": {
+        "prefix": "class",
+        "body": [
+            "class ${1} {",
+            "  ${2}",
+            "};"
+        ]
+    },
+    "struct": {
+        "prefix": "struct",
+        "body": [
+            "struct ${1} {",
+            "  ${2}",
+            "};"
+        ]
+    }
+}

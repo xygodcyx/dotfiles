@@ -1,25 +1,25 @@
 {
-  "include": [
-    "~/.config/waybar/modules.jsonc"
-  ],
-  "layer": "top",
-  "position": "top",
-  "height": 32,
-  "fixed-center": true,
-  "reload_style_on_change": true,
-  "modules-left": [
-    "group/ws",
-    "group/weather",
-    "group/apps"
-  ],
-  "modules-center": [
-    "group/focus"
-  ],
-  "modules-right": [
-    "group/connectivity",
-    "group/media",
-    "group/hardware",
-    "group/updates",
-    "group/power"
-  ]
+    "include": [
+        "~/.config/waybar/modules.jsonc"
+    ],
+    "layer": "top",
+    "position": "top",
+    "height": 32,
+    "fixed-center": true,
+    "reload_style_on_change": true,
+    "modules-left": [
+        "group/ws",
+        "group/weather",
+        "group/apps"
+    ],
+    "modules-center": [
+        "group/focus"
+    ],
+    "modules-right": [
+        "group/connectivity",
+        "group/media",
+        "group/hardware",
+        "group/updates",
+        "group/power"
+    ]
 }

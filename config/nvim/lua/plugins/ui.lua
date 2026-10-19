@@ -1,18 +1,18 @@
 -- lua/plugins/ui.lua
 return {
-	{
-		"stevearc/oil.nvim",
-		dependencies = { "nvim-tree/nvim-web-devicons" },
-		config = function()
-			require("oil").setup()
-		end,
-	},
+	-- {
+	-- 	"stevearc/oil.nvim",
+	-- 	dependencies = { "nvim-tree/nvim-web-devicons" },
+	-- 	config = function()
+	-- 		require("oil").setup()
+	-- 	end,
+	-- },
 	{
 		"mei28/luminate.nvim",
 		event = "VeryLazy",
 		config = function()
 			require("luminate").setup({
-				duration = 130, -- 高亮持续毫秒数
+				duration = 130,
 			})
 		end,
 	},
@@ -20,22 +20,22 @@ return {
 		"stevearc/dressing.nvim",
 		opts = {},
 	},
-	{
-		"folke/which-key.nvim",
-		event = "VeryLazy",
-		opts = {
-			preset = "helix",
-			spec = {
-				{ "<leader>d", group = "调试" }, -- 把 +debug 改成 +调试
-				{ "<leader>f", group = "文件" },
-				{ "<leader>g", group = "Git" },
-				{ "<leader>s", group = "搜索" },
-				{ "<leader>u", group = "界面" },
-				{ "<leader>x", group = "诊断" },
-				{ "<leader>c", group = "代码操作" },
-			},
-		},
-	},
+	-- {
+	-- 	"folke/which-key.nvim",
+	-- 	event = "VeryLazy",
+	-- 	opts = {
+	-- 		preset = "helix",
+	-- 		spec = {
+	-- 			{ "<leader>d", group = "调试" }, -- 把 +debug 改成 +调试
+	-- 			{ "<leader>f", group = "文件" },
+	-- 			{ "<leader>g", group = "Git" },
+	-- 			{ "<leader>s", group = "搜索" },
+	-- 			{ "<leader>u", group = "界面" },
+	-- 			{ "<leader>x", group = "诊断" },
+	-- 			{ "<leader>c", group = "代码操作" },
+	-- 		},
+	-- 	},
+	-- },
 	-- 状态栏
 	{
 		"nvim-lualine/lualine.nvim",
@@ -55,35 +55,64 @@ return {
 			require("lualine").setup({
 				options = {
 					theme = "auto",
-					component_separators = { left = "", right = "" },
+					component_separators = { left = ">", right = "<" },
 					section_separators = { left = "", right = "" },
+				},
+				sections = {
+					lualine_a = { "mode" },
+					lualine_b = { "branch", "diff", "diagnostics" },
+					lualine_c = {
+						{
+							function()
+								return vim.fn.fnamemodify(vim.fn.getcwd(), ":~")
+							end,
+							icon = "",
+						},
+						"filename",
+					},
+					lualine_x = { "encoding", "fileformat", "filetype" },
+					lualine_y = { "progress" },
+					lualine_z = { "location" },
 				},
 			})
 		end,
 	},
 	{
 		"sphamba/smear-cursor.nvim",
-
+		config = function(_, opts)
+			require("smear_cursor").setup(opts)
+		end,
 		opts = {
-			-- Smear cursor when switching buffers or windows.
-			smear_between_buffers = true,
-
-			-- Smear cursor when moving within line or to neighbor lines.
-			-- Use `min_horizontal_distance_smear` and `min_vertical_distance_smear` for finer control
-			smear_between_neighbor_lines = true,
-
-			-- Draw the smear in buffer space instead of screen space when scrolling
-			scroll_buffer_space = true,
-
-			-- Set to `true` if your font supports legacy computing symbols (block unicode symbols).
-			-- Smears and particles will look a lot less blocky.
-			legacy_computing_symbols_support = false,
-
-			-- Smear cursor in insert mode.
-			-- See also `vertical_bar_cursor_insert_mode` and `distance_stop_animating_vertical_bar`.
-			smear_insert_mode = true,
+			enabled = false,
+			time_interval = nil,
+			delay_event_to_smear = nil,
 		},
+
+		-- opts = {
+		-- 	-- Smear cursor when switching buffers or windows.
+		-- 	smear_between_buffers = true,
+		--
+		-- 	-- Smear cursor when moving within line or to neighbor lines.
+		-- 	-- Use `min_horizontal_distance_smear` and `min_vertical_distance_smear` for finer control
+		-- 	smear_between_neighbor_lines = false,
+		--
+		-- 	-- Draw the smear in buffer space instead of screen space when scrolling
+		-- 	scroll_buffer_space = true,
+		--
+		-- 	-- Set to `true` if your font supports legacy computing symbols (block unicode symbols).
+		-- 	-- Smears and particles will look a lot less blocky.
+		-- 	legacy_computing_symbols_support = false,
+		--
+		-- 	-- Smear cursor in insert mode.
+		-- 	-- See also `vertical_bar_cursor_insert_mode` and `distance_stop_animating_vertical_bar`.
+		-- 	smear_insert_mode = false,
+		-- },
 	},
+	-- ,
+	-- {
+	-- 	"karb94/neoscroll.nvim",
+	-- 	opts = {},
+	-- },
 
 	-- 文件树
 	-- {
@@ -111,7 +140,10 @@ return {
 	-- 标签栏
 	-- {
 	-- 	"romgrk/barbar.nvim",
-	-- 	dependencies = { "nvim-tree/nvim-web-devicons" },
+	-- 	dependencies = {
+	-- 		"lewis6991/gitsigns.nvim", -- OPTIONAL: for git status
+	-- 		"nvim-tree/nvim-web-devicons",
+	-- 	},
 	-- },
 	-- {
 	-- 	"sphamba/smear-cursor.nvim",

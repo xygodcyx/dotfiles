@@ -1,28 +1,3 @@
--- vim.api.nvim_create_autocmd("BufWritePre", {
--- 	pattern = "*",
--- 	callback = function(args)
--- 		require("conform").format({ bufnr = args.buf })
--- 	end,
--- })
-
--- 在 LSP 配置的 on_attach 回调中绑定
--- vim.api.nvim_create_autocmd("LspAttach", {
--- 	callback = function(event)
--- 		local opts = { buffer = event.buf }
--- 		-- 格式化
--- 		vim.keymap.set(
--- 			"n",
--- 			"<leader>fm",
--- 			function()
--- 				vim.lsp.buf.format({ async = true })
--- 			end,
--- 			vim.tbl_extend("force", opts, {
--- 				desc = "Format Code",
--- 			})
--- 		)
--- 	end,
--- })
-
 local commands = {
 	W = "w",
 	Q = "q",
@@ -53,6 +28,10 @@ vim.api.nvim_create_autocmd("LspAttach", {
 	group = vim.api.nvim_create_augroup("UserLspConfig", {}),
 	callback = function(ev)
 		-- 直接全局/按缓冲区开启，内部会自动判断 LSP 能力
+		local ft = vim.bo.filetype
+		if vim.tbl_contains({ "sagafinder", "sagaoutline" }, ft) then
+			return false
+		end
 		vim.lsp.inlay_hint.enable(true, { bufnr = ev.buf })
 	end,
 })
@@ -100,6 +79,55 @@ vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
 		if vim.bo.buftype == "dapui_console" then
 			-- 延迟 10 毫秒执行，确保文本已经渲染完毕，然后滚动到最后一行
 			vim.cmd("normal! gg")
+		end
+	end,
+})
+
+-- vim.api.nvim_create_autocmd("LspAttach", {
+-- 	callback = function(args)
+-- 		local client = vim.lsp.get_client_by_id(args.data.client_id)
+-- 		if client and client.name == "ts_ls" then
+-- 			-- 关闭 ts_ls 的诊断，让 eslint 接管
+-- 			client.server_capabilities.diagnosticProvider = nil
+-- 		end
+-- 	end,
+-- })
+
+vim.api.nvim_create_autocmd("LspAttach", {
+	callback = function(args)
+		local client = vim.lsp.get_client_by_id(args.data.client_id)
+		if client and client.name == "ts_ls" then
+			-- 过滤掉 code 为 6133 的诊断
+
+			if vim.b[args.buf]._ts_ls_diag_patched then
+				return
+			end
+			vim.b[args.buf]._ts_ls_diag_patched = true
+			local orig = vim.lsp.handlers["textDocument/publishDiagnostics"]
+			client.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+				if result and result.diagnostics then
+					result.diagnostics = vim.tbl_filter(function(d)
+						return d.code ~= 6133 and d.code ~= 6196
+					end, result.diagnostics)
+				end
+				if orig then
+					orig(err, result, ctx, config)
+				end
+			end
+		end
+	end,
+})
+
+vim.api.nvim_create_autocmd("BufEnter", {
+	callback = function(ev)
+		---@type string
+		local path = ev.file
+		if path:match("dap-") == nil then
+			-- local file = vim.secure.read(path)
+			-- print(file)
+			-- for key, value in pairs(file) do
+			-- 	print(key)
+			-- end
 		end
 	end,
 })

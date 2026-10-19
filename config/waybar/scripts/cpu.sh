@@ -5,6 +5,7 @@
 #    · 两次采样之间的使用率（/proc/stat 差值）
 #    · 1/5/15 分钟负载
 #    · 电源模式（platform_profile）：悬浮框显示，右键循环切换
+#    · 全程零 fork：不调用 awk/grep/cat/jq，改用 bash 内建运算与 printf
 #
 #  用法：
 #    cpu.sh                  输出 waybar JSON（模块每 2 秒调用）
@@ -28,7 +29,10 @@ profile_label() {
 }
 
 current_profile() {
-  [[ -r "$PROFILE_FILE" ]] && cat "$PROFILE_FILE" 2>/dev/null || true
+  # $(<file) 是 bash 内建读取，不会 fork cat
+  if [[ -r "$PROFILE_FILE" ]]; then
+    printf '%s' "$(<"$PROFILE_FILE")"
+  fi
 }
 
 # 右键：循环切换平台电源模式
@@ -88,13 +92,17 @@ sum=0
 count=0
 for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq; do
   [[ -r "$f" ]] || continue
-  sum=$((sum + $(<"$f")))
+  read -r v <"$f" || continue
+  sum=$((sum + v))
   count=$((count + 1))
 done
-freq=$(awk -v s="$sum" -v n="$count" 'BEGIN { printf "%.2f", (n ? s / n / 1000000 : 0) }')
+((count > 0)) || count=1
+# 纯整数运算 + 四舍五入，避免 awk
+x100=$(((sum + count * 5000) / (count * 10000)))
+printf -v freq '%d.%02d' $((x100 / 100)) $((x100 % 100))
 
 # ── 使用率（与上次采样的差值） ──────────────────────────────────────
-read -r _ u n s i w q sq st _ < <(grep '^cpu ' /proc/stat)
+read -r _ u n s i w q sq st _ </proc/stat
 total=$((u + n + s + i + w + q + sq + st))
 idle=$((i + w))
 
@@ -114,17 +122,13 @@ read -r load1 load5 load15 _ </proc/loadavg
 
 # ── 电源模式 ────────────────────────────────────────────────────────
 profile=$(current_profile)
-profile_line=""
-if [[ -n "$profile" ]]; then
-  profile_line=$(printf '\n模式  %s（右键切换）' "$(profile_label "$profile")")
-fi
-
-# ── waybar JSON ─────────────────────────────────────────────────────
-tooltip=$(printf '频率 %s GHz\n使用率 %s%%\n负载 %s · %s · %s%s' \
-  "$freq" "$usage" "$load1" "$load5" "$load15" "$profile_line")
+# 注意：这里的 \n 是给 JSON 用的转义，不是真换行
+printf -v tooltip '频率 %s GHz\\n使用率 %s%%\\n负载 %s · %s · %s' \
+  "$freq" "$usage" "$load1" "$load5" "$load15"
+[[ -n "$profile" ]] && printf -v tooltip '%s\\n模式  %s（右键切换）' \
+  "$tooltip" "$(profile_label "$profile")"
 
 class="normal"
 ((usage >= 80)) && class="high"
 
-jq -cn --arg text "󰻠 ${freq}GHz" --arg tooltip "$tooltip" --arg class "$class" \
-  '{text: $text, tooltip: $tooltip, class: $class}'
+printf '{"text":"󰻠 %sGHz","tooltip":"%s","class":"%s"}\n' "$freq" "$tooltip" "$class"
