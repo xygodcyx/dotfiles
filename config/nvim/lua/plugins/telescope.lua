@@ -47,7 +47,7 @@ return {
 					"library",
 					"setting",
 					"vendor",
-					"static",
+					-- "static",
 					"libs",
 					"build",
 					"dist",

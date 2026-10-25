@@ -41,20 +41,12 @@ opt.cursorline = true
 opt.scrolloff = 999
 opt.wrap = true
 
-opt.softtabstop = 4
-opt.tabstop = 4
-opt.shiftwidth = 4
-vim.api.nvim_create_autocmd("FileType", {
-	pattern = { "c", "cpp" },
-	callback = function()
-		vim.opt_local.tabstop = 2
-		vim.opt_local.shiftwidth = 2
-		vim.opt_local.softtabstop = 2
-	end,
-})
+opt.softtabstop = 2
+opt.tabstop = 2
+opt.shiftwidth = 2
 opt.expandtab = true
 opt.autoindent = true
--- opt.colorcolumn = "80"
+opt.colorcolumn = "80"
 opt.clipboard = "unnamedplus"
 
 opt.foldmethod = "expr"
