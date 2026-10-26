@@ -131,19 +131,3 @@ vim.api.nvim_create_autocmd("BufEnter", {
 		end
 	end,
 })
-
-vim.api.nvim_create_autocmd("WinLeave", {
-	callback = function()
-		-- 检查当前是否打开了 code action 相关的窗口
-		-- Neovim 0.10+ 的 code action 窗口通常包含 "code_action" 的 filetype 或特定的 buftype
-		local bufnr = vim.api.nvim_get_current_buf()
-		local ft = vim.bo[bufnr].filetype
-		local buftype = vim.bo[bufnr].buftype
-
-		-- 匹配 code action 窗口的特征，或者如果你用的是 Lspsaga，可能是 "saga_code_action"
-		if ft:match("code_action") or ft:match("saga") or buftype == "prompt" then
-			vim.cmd("close")
-		end
-	end,
-	desc = "离开窗口时自动关闭 Code Action 浮窗",
-})
