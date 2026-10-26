@@ -18,7 +18,7 @@ return {
 				close_events = {
 					"BufLeave",
 					"InsertEnter",
-					"CursorMoved",
+					-- "CursorMoved",
 				},
 				-- -- 诊断配置
 				-- diagnostic = {
@@ -110,12 +110,12 @@ return {
 
 			-- 预览类型定义
 			vim.keymap.set("n", "gt", "<cmd>Lspsaga peek_type_definition<CR>", { desc = "Peek Type Definition" })
-			vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "LSP Code Action" })
 			-- 查找引用（Finder）
 			-- vim.keymap.set("n", "gr", "<cmd>Lspsaga finder<CR>", { desc = "Find References" })
 
 			-- 代码操作
-			vim.keymap.set("n", "<leader>ca", "<cmd>Lspsaga code_action<CR>", { desc = "Code Action" })
+			vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "LSP Code Action" })
+			-- vim.keymap.set("n", "<leader>ca", "<cmd>Lspsaga code_action<CR>", { desc = "Code Action" })
 
 			-- 重命名
 			vim.keymap.set("n", "<leader>rn", "<cmd>Lspsaga rename<CR>", { desc = "Rename" })

@@ -73,6 +73,7 @@ keymap({ "n", "x", "o" }, "<C-h>", "^")
 keymap({ "n", "x", "o" }, "<C-l>", "$")
 
 keymap("n", "<leader>w", "<cmd>w<CR>", { desc = "保存文件" })
+-- keymap("n", "<leader>q", "<cmd>q<CR>", { desc = "退出文件" })
 
 keymap("n", "<leader>rlo", "<cmd>restart<CR>", { desc = "重新加载文件" })
 
