@@ -15,27 +15,27 @@ return {
 		end,
 	},
 
-	-- {
-	-- 	"mrcjkb/rustaceanvim",
-	-- 	version = "^9",
-	-- 	ft = { "rust" },
-	-- 	lazy = false,
-	-- 	config = function()
-	-- 		local capabilities = require("cmp_nvim_lsp").default_capabilities()
-	-- 		vim.g.rustaceanvim = {
-	-- 			server = {
-	-- 				capabilities = capabilities,
-	-- 				default_settings = {
-	-- 					["rust-analyzer"] = {
-	-- 						cargo = { allFeatures = true },
-	-- 						buildScripts = { enable = true },
-	-- 						checkOnSave = true,
-	-- 					},
-	-- 				},
-	-- 			},
-	-- 		}
-	-- 	end,
-	-- },
+	{
+		"mrcjkb/rustaceanvim",
+		version = "^9",
+		ft = { "rust" },
+		lazy = false,
+		config = function()
+			local capabilities = require("cmp_nvim_lsp").default_capabilities()
+			vim.g.rustaceanvim = {
+				server = {
+					capabilities = capabilities,
+					default_settings = {
+						["rust-analyzer"] = {
+							cargo = { allFeatures = true },
+							buildScripts = { enable = true },
+							checkOnSave = true,
+						},
+					},
+				},
+			}
+		end,
+	},
 
 	{
 		"neovim/nvim-lspconfig",
@@ -100,26 +100,26 @@ return {
 							"bash",
 						},
 					},
-					rust_analyzer = {
-						settings = {
-							["rust-analyzer"] = {
-								imports = {
-									granularity = {
-										group = "module",
-									},
-									prefix = "self",
-								},
-								cargo = {
-									buildScripts = {
-										enable = true,
-									},
-								},
-								procMacro = {
-									enable = true,
-								},
-							},
-						},
-					},
+					-- rust_analyzer = {
+					-- 	settings = {
+					-- 		["rust-analyzer"] = {
+					-- 			imports = {
+					-- 				granularity = {
+					-- 					group = "module",
+					-- 				},
+					-- 				prefix = "self",
+					-- 			},
+					-- 			cargo = {
+					-- 				buildScripts = {
+					-- 					enable = true,
+					-- 				},
+					-- 			},
+					-- 			procMacro = {
+					-- 				enable = true,
+					-- 			},
+					-- 		},
+					-- 	},
+					-- },
 					clangd = {
 						capabilities = vim.tbl_deep_extend("force", capabilities, {
 							textDocument = {
@@ -175,7 +175,7 @@ return {
 								analysis = {
 									autoImportCompletions = true,
 									typeCheckingMode = "basic", -- 可选: "off", "basic", "strict"
-									diagnosticMode = "workspace",
+									diagnosticMode = "openFilesOnly",
 									autoSearchPaths = true,
 									useLibraryCodeForTypes = true,
 								},
@@ -200,14 +200,19 @@ return {
 							},
 							settings = {
 								typescript = {
-
 									diagnostics = {
 										unusedLocals = false,
 										unusedParameters = false,
 									},
+									format = {
+										enable = false, -- 关键：禁用 vtsls 的格式化
+									},
 									inlayHints = {},
 								},
 								javascript = {
+									format = {
+										enable = false, -- 对 JavaScript 也做同样处理
+									},
 									diagnostics = {
 										unusedLocals = false,
 										unusedParameters = false,
@@ -347,6 +352,21 @@ return {
 	{
 		"esmuellert/nvim-eslint",
 		config = function()
+			vim.api.nvim_create_autocmd("BufWritePre", {
+				pattern = { "*.js", "*.jsx", "*.ts", "*.tsx", "*.vue" },
+				callback = function()
+					local client = vim.lsp.get_clients({ name = "eslint" })[1]
+					if not client then
+						return
+					end
+					client:request_sync("workspace/executeCommand", {
+						command = "eslint.applyAllFixes",
+						arguments = {
+							{ uri = vim.uri_from_bufnr(0), version = vim.lsp.util.buf_versions[0] },
+						},
+					}, nil, 0)
+				end,
+			})
 			require("nvim-eslint").setup({
 				debug = false,
 
@@ -383,7 +403,7 @@ return {
 					onIgnoredFiles = "true",
 					options = {},
 					rulesCustomizations = {},
-					run = "onType",
+					run = "onSave",
 					problems = { shortenToSingleLine = true },
 					workingDirectory = { mode = "location" },
 				},

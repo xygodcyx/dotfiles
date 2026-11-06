@@ -6,9 +6,10 @@ vim.o.sidescrolloff = 8
 g.mapleader = " "
 
 opt.undofile = false -- 开启文件持久化撤销（保存退出后依然能 u 撤销）
-opt.undodir = vim.fn.stdpath("data") .. "/undo" -- 撤销历史文件保存目录
-opt.undolevels = 10000 -- 最大可撤销步数（默认 1000，调大到 10000）
-opt.undoreload = 10000 -- 文件被外部修改重载时保留的最大撤销行数
+-- opt.undodir = vim.fn.stdpath("data") .. "/undo" -- 撤销历史文件保存目录
+opt.undolevels = 3000 -- 最大可撤销步数（默认 1000，调大到 10000）
+opt.undoreload = 3000 -- 文件被外部修改重载时保留的最大撤销行数
+opt.timeoutlen = 300
 
 opt.number = true
 opt.relativenumber = true
@@ -28,6 +29,13 @@ opt.swapfile = false
 opt.backup = false
 opt.writebackup = false
 opt.autowrite = true
+
+-- 消息/报错不再阻塞输入：
+-- 去掉 hit-enter，长消息和报错只短暂显示，不再要求按 Enter 处理
+if vim.fn.exists("&messagesopt") == 1 then
+	opt.messagesopt = "wait:0,history:500,progress:c"
+end
+opt.more = false -- 关闭 -- More -- 分页提示
 vim.o.autoread = true
 vim.bo.autoread = true
 vim.o.whichwrap = "<,>,[,]"
@@ -61,7 +69,7 @@ vim.diagnostic.config({
 		spacing = 4, -- 与代码的间隔
 	},
 	underline = true,
-	update_in_insert = true, -- 在插入模式时不频繁刷新报错，避免卡顿
+	update_in_insert = false, -- 插入模式不刷新报错，避免每次输入都触发诊断卡顿
 	signs = {
 		text = {
 			[vim.diagnostic.severity.ERROR] = "",

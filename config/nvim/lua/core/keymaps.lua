@@ -11,9 +11,13 @@ keymap("n", "q", "<Nop>") -- close record mode
 keymap("i", "<C-h>", "<ESC>I", opt)
 keymap("i", "<C-l>", "<ESC>A", opt)
 
-keymap("i", "kk", "<ESC>")
-keymap("i", "jj", "<ESC>")
-keymap("i", "jk", "<ESC>")
+-- 不要用 kk/jj/jk 退出插入模式：输入 k/j 开头的单词（如 key、json）时，
+-- Neovim 会等待 timeoutlen（默认 1000ms）判断是否是映射，导致明显卡顿。
+-- 使用 <Esc> 或 <C-[> 退出插入模式。如需快捷退出，请改用非字母组合（如 ;;）。
+-- keymap("i", "kk", "<ESC>")
+-- keymap("i", "jj", "<ESC>")
+-- keymap("i", "jk", "<ESC>")
+keymap("i", "<C-n>", "<ESC>")
 
 keymap("n", "<C-v>", "V")
 keymap("n", "V", "<C-v>")

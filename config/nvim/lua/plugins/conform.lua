@@ -4,13 +4,13 @@ return {
 		format_on_save = {
 			-- These options will be passed to conform.format()
 			-- timeout_ms = 500,
-			-- lsp_format = "fallback",
+			lsp_format = "fallback",
 		},
 		formatters_by_ft = {
-			json = { "eslint_d", "prettierd", stop_after_first = true },
-			jsonc = { "eslint_d", "prettierd", stop_after_first = true },
-			typescript = { "eslint_d", "prettierd", stop_after_first = true },
-			javascript = { "eslint_d", "prettierd", stop_after_first = true },
+			-- json = { "eslint", "prettierd", stop_after_first = true },
+			-- jsonc = { "eslint", "prettierd", stop_after_first = true },
+			-- typescript = { "eslint", "prettierd", stop_after_first = true },
+			-- javascript = { "eslint", "prettierd", stop_after_first = true },
 			html = { "prettierd" },
 			lua = { "stylua" },
 			python = { "ruff_fix", "ruff_format" },
