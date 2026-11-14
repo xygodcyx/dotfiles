@@ -14,8 +14,8 @@
 #   · 模块模式（无参数）会先立即渲染（缓存或 "󰚰 --" 占位符），
 #     需要联网检查时在后台进行，完成后通知 waybar 刷新，避免开机时图标空着
 #   · 更新前自动创建 snapper 快照，更新后把变更写入日志（grep pacman.log）
-#   · 流程要等你操作时（选择 / 输入密码 / 确认删除）发桌面通知，
-#     操作完自动撤掉；终端本来就在前台时不打扰
+#   · 更新过程中的选择一律自动应答（yay/paru --noconfirm）；
+#     只有需要 sudo/指纹授权时才发一条普通通知，授权后自动撤掉
 #
 #  用法：
 #    updates.sh            输出 waybar JSON（模块每 5 分钟调用一次）
@@ -145,10 +145,10 @@ notify_check_result() {
   fi
 }
 
-# ── 桌面提醒：流程要等你操作时（选择 / 输入密码 / 确认） ─────────────
-# 这些提示只在终端里等待，人在别的窗口容易错过；所以每到这种步骤就发
-# 一条通知（如果运行本脚本的终端本来就在前台，就跳过不打扰），
-# 等用户操作完立刻把通知撤掉，不留残余、也不进通知历史。
+# ── 桌面提醒：只在需要你授权时 ───────────────────────────────────────
+# 更新过程中的选择一律自动应答（yay/paru --noconfirm），所以唯一需要你
+# 出手的就是 sudo / 指纹验证。这一步只在终端里等待，人在别的窗口容易错过，
+# 所以发一条普通通知（不抢眼）；终端本来就在前台时跳过，授权完成自动撤掉。
 NOTIFY_ID=""
 
 # 运行本脚本的终端窗口是否在前台：
@@ -167,18 +167,19 @@ own_terminal_focused() {
   return 1
 }
 
-# 需要用户操作时提醒（critical：不会自动消失，避免人离开时错过）
-notify_need_input() {
-  local summary="$1" body="$2" icon="${3:-dialog-question}"
+# 需要授权时提醒（普通通知，用默认的 8 秒超时）
+notify_auth_required() {
+  local what="$1"
   command -v notify-send >/dev/null 2>&1 || return 0
   own_terminal_focused && return 0
   # 万一上一条还没撤（异常路径），先清掉再发新的，避免堆叠
-  notify_input_done
-  NOTIFY_ID=$(notify-send -p -a waybar -u critical -i "$icon" "$summary" "$body" 2>/dev/null) || NOTIFY_ID=""
+  notify_auth_done
+  NOTIFY_ID=$(notify-send -p -a waybar -i dialog-password \
+    "系统更新需要授权" "$what（请在终端验证）" 2>/dev/null) || NOTIFY_ID=""
 }
 
-# 用户已操作（或这一步不需要了），撤掉提醒
-notify_input_done() {
+# 授权完成（或跳过），撤掉提醒
+notify_auth_done() {
   [[ -n "$NOTIFY_ID" ]] || return 0
   command -v makoctl >/dev/null 2>&1 && makoctl dismiss -n "$NOTIFY_ID" -h >/dev/null 2>&1
   NOTIFY_ID=""
@@ -259,13 +260,13 @@ create_snapshot() {
 
   before=$(snapper_latest "$config")
   if sudo_needs_password; then
-    notify_need_input "系统更新需要授权" "创建 snapper 快照：请在终端输入密码" "dialog-password"
+    notify_auth_required "创建 snapper 快照"
   fi
   if ! sudo snapper --quiet -c "$config" create -d "$desc" >/dev/null 2>&1; then
-    notify_input_done
+    notify_auth_done
     return 0
   fi
-  notify_input_done
+  notify_auth_done
   after=$(snapper_latest "$config")
   if [[ -n "$after" && "$after" != "$before" ]]; then
     echo "$config $after"
@@ -311,10 +312,10 @@ run_grub_mkconfig() {
   [[ -z "$cfg" ]] && { GRUB_NOTE="未找到 grub.cfg，已跳过"; return 1; }
 
   if sudo_needs_password; then
-    notify_need_input "系统更新需要授权" "重建 GRUB 配置：请在终端输入密码" "dialog-password"
+    notify_auth_required "重建 GRUB 配置"
   fi
   out=$(sudo grub-mkconfig -o "$cfg" 2>&1) || rc=$?
-  notify_input_done
+  notify_auth_done
   if [[ "$rc" -eq 0 ]]; then
     GRUB_NOTE="已重建 $cfg（grub-mkconfig 成功）"
   else
@@ -403,25 +404,21 @@ do_update() {
   log_lines_before=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
 
   # 3. 全量更新（官方仓库 + AUR）
-  local devel_args=()
+  local devel_args=() auto_args=(--noconfirm)
   if [[ "${AUR_DEVEL:-0}" == "1" ]]; then
     devel_args+=(--devel)
   fi
-  echo "  [3/6] $AUR_HELPER -Syu ${devel_args[*]} ..."
-  # 这一步可能要输密码或回答 yay/pacman 的确认，先提醒一下
-  local aur_pending="" update_note=""
-  aur_pending=$(jq -r 'def n(s): (s|split("\n")|map(select(.!=""))|length); n(.aur)' "$CACHE_FILE" 2>/dev/null || echo 0)
+  # yay 的构建菜单（清理 / diff / 编辑 PKGBUILD）也预设为"不询问"
+  case "${AUR_HELPER##*/}" in
+    yay) auto_args+=(--answerclean None --answerdiff None --answeredit None) ;;
+  esac
+  printf '  [3/6] %s -Syu %s ...\n' "$AUR_HELPER" "${auto_args[*]} ${devel_args[*]}"
+  # 选择类问答全部自动应答，唯一可能停下来的就是 sudo 授权
   if sudo_needs_password; then
-    update_note="需要输入密码"
+    notify_auth_required "执行 $AUR_HELPER -Syu（更新软件包）"
   fi
-  if [[ "${aur_pending:-0}" -gt 0 ]]; then
-    update_note="${update_note:+$update_note；}有 AUR 包，可能询问构建选项"
-  fi
-  if [[ -n "$update_note" ]]; then
-    notify_need_input "开始全量更新" "$AUR_HELPER -Syu：$update_note（请在终端完成）" "system-software-update"
-  fi
-  "$AUR_HELPER" -Syu --noconfirm "${devel_args[@]}" || rc=$?
-  notify_input_done
+  "$AUR_HELPER" -Syu "${auto_args[@]}" "${devel_args[@]}" || rc=$?
+  notify_auth_done
 
   # 4. Flatpak
   if [[ "$rc" -eq 0 ]] && command -v flatpak >/dev/null 2>&1; then
@@ -560,20 +557,6 @@ render_menu() {
   printf '  %s[%d]%s 退出\n' "$BOLD" "$idx" "$RESET"
 }
 
-confirm_run() {
-  local what="$1" note="${2:-}" ans=""
-  printf '\n  %s确认执行：%s%s\n' "$BOLD$YELLOW" "$what" "$RESET"
-  [[ -n "$note" ]] && printf '  %s%s%s\n' "$DIM" "$note" "$RESET"
-  printf '  确定吗？[y/N]：'
-  notify_need_input "系统更新：等待确认" "$what" "dialog-question"
-  if ! read -r ans; then
-    notify_input_done
-    return 1
-  fi
-  notify_input_done
-  [[ "$ans" =~ ^[Yy]$ ]]
-}
-
 run_pacdiff() {
   local n diffprog="${DIFFPROG:-}"
   n=$(pacdiff -o 2>/dev/null | grep -c . || true)
@@ -591,14 +574,15 @@ run_pacdiff() {
     fi
   fi
   echo "  启动 pacdiff（差异工具：${diffprog:-默认}）..."
-  notify_need_input "系统更新：请处理 pacnew/pacsave" \
-    "pacdiff 会逐个打开差异文件，等你选择保留哪个版本" "dialog-question"
+  if sudo_needs_password; then
+    notify_auth_required "处理 pacnew/pacsave（sudo pacdiff）"
+  fi
   if [[ -n "$diffprog" ]]; then
     sudo DIFFPROG="$diffprog" pacdiff || true
   else
     sudo pacdiff || true
   fi
-  notify_input_done
+  notify_auth_done
 }
 
 run_orphan_cleanup() {
@@ -615,10 +599,11 @@ run_orphan_cleanup() {
   echo "  提示：如果其中有你还需要的（比如某软件的可选依赖），先标记它们："
   echo "        sudo pacman -D --asexplicit <包名>"
   echo "  pacman 接下来还会显示一次确认，请注意核对要删除的列表。"
-  notify_need_input "系统更新：请确认删除孤立包" \
-    "pacman 会列出待删除的包并等待确认（可能还要输入密码）" "dialog-password"
+  if sudo_needs_password; then
+    notify_auth_required "删除孤立包（sudo pacman -Rns）"
+  fi
   sudo pacman -Rns "${orphans[@]}" || true
-  notify_input_done
+  notify_auth_done
 }
 
 show_news() {
@@ -636,9 +621,7 @@ show_news() {
   done <<<"$NEWS_CACHE"
   printf '\n  完整列表：https://archlinux.org/news/\n'
   printf '  按回车继续 ...'
-  notify_need_input "Arch 新闻（看完请回终端）" "按回车继续" "dialog-information"
   read -r _ || true
-  notify_input_done
 }
 
 open_flow() {
@@ -656,13 +639,9 @@ open_flow() {
 
     local hint="[1]（直接回车 = 检查/全量更新）" answer="" action=""
     printf '\n  %s%s：' "$BOLD" "$hint"
-    # 菜单会一直等你输入；如果人已经切到别的窗口，发条通知叫一下
-    notify_need_input "系统更新：等待你的选择" "回车 = 检查/全量更新，或输入编号后回车" "dialog-question"
     if ! read -r answer; then
-      notify_input_done
       break
     fi
-    notify_input_done
 
     # 回车：选 [1]（检查/全量更新）
     if [[ -z "$answer" ]]; then
@@ -680,18 +659,10 @@ open_flow() {
         do_update || true
         ;;
       pacnew)
-        if confirm_run "处理 pacnew/pacsave（sudo pacdiff）" "pacdiff 会逐个打开差异文件，由你决定保留哪个版本"; then
-          run_pacdiff
-        else
-          echo "  已取消。"
-        fi
+        run_pacdiff
         ;;
       orphans)
-        if confirm_run "清理孤立包（sudo pacman -Rns）" "这份列表会先展示，pacman 还会再确认一次"; then
-          run_orphan_cleanup
-        else
-          echo "  已取消。"
-        fi
+        run_orphan_cleanup
         ;;
       news)
         show_news

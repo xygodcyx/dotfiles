@@ -46,6 +46,7 @@ export PATH="$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/pla
 
 export PATH="$HOME/.volta/bin:$PATH"
 
+export LLM_KEY="sk-8c740db48b8e4138a5faf33568fbc183"
 #alias
 
 
@@ -60,6 +61,8 @@ alias ll='ls -lh'
 alias la='ls -lah'
 alias snvim='sudo -E nvim'
 alias sn='sudo -E nvim'
+alias open="xdg-open"
+alias fe="fprintd-enroll"
 
 eval "$(direnv hook zsh)"
 
