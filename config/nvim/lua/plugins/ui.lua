@@ -87,6 +87,18 @@ return {
 			time_interval = nil,
 			delay_event_to_smear = nil,
 		},
+		-- {
+		-- 	"akinsho/toggleterm.nvim",
+		-- 	version = "*",
+		-- 	config = function()
+		-- 		require("toggleterm").setup({
+		-- 			size = 15, -- 分屏时的高度/宽度
+		-- 			open_mapping = [[<C-\>]], -- 按 Ctrl+\ 切换终端
+		-- 			direction = "horizontal", -- 默认横向分屏，可以改成 "vertical" 或 "float"
+		-- 			shade_terminals = true,
+		-- 		})
+		-- 	end,
+		-- },
 
 		-- opts = {
 		-- 	-- Smear cursor when switching buffers or windows.

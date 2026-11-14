@@ -26,10 +26,11 @@ keymap("n", "<ESC>", ":noh<CR>", {
 	silent = true,
 })
 
--- keymap("n", "<C-h>", "<C-w>h", { desc = "切换到左窗口" })
--- keymap("n", "<C-l>", "<C-w>l", { desc = "切换到右窗口" })
+keymap("n", "<C-h>", "<C-w>h", { desc = "切换到左窗口" })
+keymap("n", "<C-l>", "<C-w>l", { desc = "切换到右窗口" })
 keymap("n", "<C-j>", "<C-w>j", { desc = "切换到下窗口" })
 keymap("n", "<C-k>", "<C-w>k", { desc = "切换到上窗口" })
+keymap("t", "<C-;>", "<C-\\><C-n>", { desc = "在终端中切换会Normal模式" })
 
 keymap("v", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action" })
 
@@ -73,8 +74,8 @@ end, { silent = true, noremap = true, desc = "切换签名帮助" })
 -- keymap({ "n" }, "<Leader>e", "<CMD>Oil<CR>", { desc = "打开文件管理器" })
 
 -- H 跳到行首，L 跳到行尾
-keymap({ "n", "x", "o" }, "<C-h>", "^")
-keymap({ "n", "x", "o" }, "<C-l>", "$")
+-- keymap({ "n", "x", "o" }, "<C-h>", "^")
+-- keymap({ "n", "x", "o" }, "<C-l>", "$")
 
 keymap("n", "<leader>w", "<cmd>w<CR>", { desc = "保存文件" })
 -- keymap("n", "<leader>q", "<cmd>q<CR>", { desc = "退出文件" })

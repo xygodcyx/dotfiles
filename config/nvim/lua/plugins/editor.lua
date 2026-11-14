@@ -453,6 +453,101 @@ return {
 			{ "<leader>e", ":Triptych<CR>" },
 		},
 	},
+	{
+		"Kurama622/llm.nvim",
+		dependencies = { "nvim-lua/plenary.nvim", "MunifTanjim/nui.nvim" },
+		cmd = { "LLMSessionToggle", "LLMSelectedTextHandler", "LLMAppHandler" },
+		config = function()
+			require("llm").setup({
+				-- 1. 模型接入配置（以 DeepSeek 为例）
+				url = "https://api.deepseek.com",
+				model = "deepseek-flash",
+				api_type = "openai",
+				max_tokens = 4096,
+				temperature = 0.3,
+
+				-- 2. 定义专用于“翻译文档”的工具
+				app_handler = {
+					DocTranslate = {
+						handler = "flexi_handler", -- 使用浮动窗口显示结果
+						prompt = [[You are a professional translation engine. Your task is to translate the provided text into Chinese.
+
+Rules:
+- Translate ALL user input faithfully.
+- Do NOT add explanations, comments, or extra content.
+- Return ONLY the translated text.]],
+						opts = {
+							exit_on_move = true, -- 光标移开即关闭，适合快速阅读
+							enter_flexible_window = false, -- 弹出时不自动进入窗口
+						},
+					},
+				},
+			})
+		end,
+		keys = {
+			-- 3. 绑定快捷键：在可视模式下选中文本后，按 <leader>tt 翻译
+			{ "<leader>tt", mode = "v", "<cmd>LLMAppHandler DocTranslate<cr>", desc = "AI 翻译选中文本" },
+		},
+	},
+	{
+		"MeanderingProgrammer/render-markdown.nvim",
+		dependencies = {
+			{
+				"nvim-treesitter/nvim-treesitter",
+				branch = "main",
+				config = function()
+					vim.api.nvim_create_autocmd("FileType", {
+						pattern = { "llm", "markdown" },
+						callback = function()
+							vim.treesitter.start(0, "markdown")
+						end,
+					})
+				end,
+			},
+			"nvim-mini/mini.icons",
+		}, -- if you use standalone mini plugins
+		ft = { "markdown", "llm" },
+
+		config = function()
+			require("render-markdown").setup({
+				restart_highlighter = true,
+				heading = {
+					enabled = true,
+					sign = false,
+					position = "overlay", -- inline | overlay
+					icons = { "󰎤 ", "󰎧 ", "󰎪 ", "󰎭 ", "󰎱 ", "󰎳 " },
+					signs = { "󰫎 " },
+					width = "block",
+					left_margin = 0,
+					left_pad = 0,
+					right_pad = 0,
+					min_width = 0,
+					border = false,
+					border_virtual = false,
+					border_prefix = false,
+					above = "▄",
+					below = "▀",
+					backgrounds = {},
+					foregrounds = {
+						"RenderMarkdownH1",
+						"RenderMarkdownH2",
+						"RenderMarkdownH3",
+						"RenderMarkdownH4",
+						"RenderMarkdownH5",
+						"RenderMarkdownH6",
+					},
+				},
+				dash = {
+					enabled = true,
+					icon = "─",
+					width = 0.5,
+					left_margin = 0.5,
+					highlight = "RenderMarkdownDash",
+				},
+				code = { style = "normal" },
+			})
+		end,
+	},
 	-- {
 	-- 	"chaoren/vim-wordmotion",
 	-- 	event = "VeryLazy",

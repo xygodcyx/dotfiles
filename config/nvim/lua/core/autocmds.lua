@@ -131,3 +131,20 @@ vim.api.nvim_create_autocmd("BufEnter", {
 		end
 	end,
 })
+
+vim.keymap.set("n", "<leader>init", function()
+	-- 1. 确保右边先分出一个垂直窗口
+	vim.cmd("vsplit")
+	-- 2. 把光标移到右边的窗口，再上下分屏
+	vim.cmd("wincmd l")
+	vim.cmd("vertical resize -30")
+	vim.cmd("split")
+
+	vim.cmd("wincmd j")
+
+	-- 此时光标在右下方。我们在这里打开 ToggleTerm
+	vim.cmd("term")
+
+	-- 如果你想把左上的窗口作为主编辑区，可以回到左边
+	vim.cmd("wincmd h")
+end, { desc = "开发专用布局 (代码+文档+终端)" })
