@@ -30,7 +30,13 @@ keymap("n", "<C-h>", "<C-w>h", { desc = "切换到左窗口" })
 keymap("n", "<C-l>", "<C-w>l", { desc = "切换到右窗口" })
 keymap("n", "<C-j>", "<C-w>j", { desc = "切换到下窗口" })
 keymap("n", "<C-k>", "<C-w>k", { desc = "切换到上窗口" })
-keymap("t", "<C-;>", "<C-\\><C-n>", { desc = "在终端中切换会Normal模式" })
+
+keymap("t", "<C-n>", "<C-\\><C-n>", { desc = "在终端中切换回Normal模式" })
+
+keymap("n", "<C-=>", "<C-w>+", { desc = "增加上下宽度" })
+keymap("n", "<C-->", "<C-w>-", { desc = "减小上下宽度" })
+keymap("n", "<C-,>", "<C-w><", { desc = "增加左右宽度" })
+keymap("n", "<C-.>", "<C-w>>", { desc = "减小左右宽度" })
 
 keymap("v", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action" })
 
@@ -134,3 +140,5 @@ end, { expr = true })
 keymap({ "n", "x" }, "<Up>", function()
 	return hasNoPrefix() and vim.wo.wrap and "gk" or "k"
 end, { expr = true })
+
+vim.keymap.set("n", "gl", "<esc>:URLOpenUnderCursor<cr>")

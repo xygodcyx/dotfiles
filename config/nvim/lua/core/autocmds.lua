@@ -118,19 +118,19 @@ vim.api.nvim_create_autocmd("LspAttach", {
 	end,
 })
 
-vim.api.nvim_create_autocmd("BufEnter", {
-	callback = function(ev)
-		---@type string
-		local path = ev.file
-		if path:match("dap-") == nil then
-			-- local file = vim.secure.read(path)
-			-- print(file)
-			-- for key, value in pairs(file) do
-			-- 	print(key)
-			-- end
-		end
-	end,
-})
+-- vim.api.nvim_create_autocmd("BufEnter", {
+-- 	callback = function(ev)
+-- 		---@type string
+-- 		local path = ev.file
+-- 		if path:match("dap-") == nil then
+-- 			-- local file = vim.secure.read(path)
+-- 			-- print(file)
+-- 			-- for key, value in pairs(file) do
+-- 			-- 	print(key)
+-- 			-- end
+-- 		end
+-- 	end,
+-- })
 
 vim.keymap.set("n", "<leader>init", function()
 	-- 1. 确保右边先分出一个垂直窗口
@@ -140,6 +140,8 @@ vim.keymap.set("n", "<leader>init", function()
 	vim.cmd("vertical resize -30")
 	vim.cmd("split")
 
+	-- vim.cmd("resize -1")
+
 	vim.cmd("wincmd j")
 
 	-- 此时光标在右下方。我们在这里打开 ToggleTerm
@@ -148,3 +150,13 @@ vim.keymap.set("n", "<leader>init", function()
 	-- 如果你想把左上的窗口作为主编辑区，可以回到左边
 	vim.cmd("wincmd h")
 end, { desc = "开发专用布局 (代码+文档+终端)" })
+
+vim.api.nvim_create_autocmd({ "WinEnter" }, {
+	pattern = "term://*",
+	callback = function()
+		-- 仅在终端缓冲区且当前模式为普通模式时切换
+		if vim.bo.buftype == "terminal" then
+			vim.cmd("startinsert")
+		end
+	end,
+})

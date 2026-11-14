@@ -454,42 +454,6 @@ return {
 		},
 	},
 	{
-		"Kurama622/llm.nvim",
-		dependencies = { "nvim-lua/plenary.nvim", "MunifTanjim/nui.nvim" },
-		cmd = { "LLMSessionToggle", "LLMSelectedTextHandler", "LLMAppHandler" },
-		config = function()
-			require("llm").setup({
-				-- 1. 模型接入配置（以 DeepSeek 为例）
-				url = "https://api.deepseek.com",
-				model = "deepseek-flash",
-				api_type = "openai",
-				max_tokens = 4096,
-				temperature = 0.3,
-
-				-- 2. 定义专用于“翻译文档”的工具
-				app_handler = {
-					DocTranslate = {
-						handler = "flexi_handler", -- 使用浮动窗口显示结果
-						prompt = [[You are a professional translation engine. Your task is to translate the provided text into Chinese.
-
-Rules:
-- Translate ALL user input faithfully.
-- Do NOT add explanations, comments, or extra content.
-- Return ONLY the translated text.]],
-						opts = {
-							exit_on_move = true, -- 光标移开即关闭，适合快速阅读
-							enter_flexible_window = false, -- 弹出时不自动进入窗口
-						},
-					},
-				},
-			})
-		end,
-		keys = {
-			-- 3. 绑定快捷键：在可视模式下选中文本后，按 <leader>tt 翻译
-			{ "<leader>tt", mode = "v", "<cmd>LLMAppHandler DocTranslate<cr>", desc = "AI 翻译选中文本" },
-		},
-	},
-	{
 		"MeanderingProgrammer/render-markdown.nvim",
 		dependencies = {
 			{
@@ -537,6 +501,9 @@ Rules:
 						"RenderMarkdownH6",
 					},
 				},
+				anti_conceal = {
+					enabled = false, -- 彻底关闭光标行反隐藏
+				},
 				dash = {
 					enabled = true,
 					icon = "─",
@@ -545,6 +512,41 @@ Rules:
 					highlight = "RenderMarkdownDash",
 				},
 				code = { style = "normal" },
+			})
+		end,
+	},
+	{
+		"sontungexpt/url-open",
+		event = "VeryLazy",
+		cmd = "URLOpenUnderCursor",
+		config = function()
+			local status_ok, url_open = pcall(require, "url-open")
+			if not status_ok then
+				return
+			end
+
+			url_open.setup({
+				open_app = "default",
+				-- If true, only open the URL when the cursor is in the middle of the URL.
+				-- If false, open the next URL found from the cursor position,
+				-- which means you can open a URL even when the cursor is in front of the URL or in the middle of the URL.
+				open_only_when_cursor_on_url = false,
+				highlight_url = {
+					all_urls = {
+						enabled = false,
+						fg = "#21d5ff", -- "text" or "#rrggbb"
+						-- fg = "text", -- text will set underline same color with text
+						bg = nil, -- nil or "#rrggbb"
+						underline = true,
+					},
+					cursor_move = {
+						enabled = true,
+						fg = "#199eff", -- "text" or "#rrggbb"
+						-- fg = "text", -- text will set underline same color with text
+						bg = nil, -- nil or "#rrggbb"
+						underline = true,
+					},
+				},
 			})
 		end,
 	},
