@@ -22,7 +22,15 @@ return {
 		lazy = false,
 		config = function()
 			local capabilities = require("cmp_nvim_lsp").default_capabilities()
+			local cfg = require("rustaceanvim.config")
 			vim.g.rustaceanvim = {
+				dap = {
+					-- 关键：与 nvim-dap 中配置的 codelldb 路径保持一致
+					adapter = cfg.get_codelldb_adapter(
+						vim.fn.stdpath("data") .. "/mason/bin/codelldb",
+						nil -- liblldb 路径可选，codelldb 通常能自行找到
+					),
+				},
 				server = {
 					capabilities = capabilities,
 					default_settings = {

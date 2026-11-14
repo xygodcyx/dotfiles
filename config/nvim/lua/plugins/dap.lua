@@ -60,6 +60,7 @@ return {
 			}
 			dap.configurations.cpp = cpp_configs
 			dap.configurations.c = cpp_configs
+			dap.configurations.rust = dap.configurations.cpp
 
 			-- Lua 调试配置
 			local lua_configs = {
