@@ -46,7 +46,7 @@ export PATH="$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/pla
 
 export PATH="$HOME/.volta/bin:$PATH"
 
-export LLM_KEY="sk-8c740db48b8e4138a5faf33568fbc183"
+#export LLM_KEY="sk-8c740db48b8e4138a5faf33568fbc183"
 #alias
 
 
