@@ -2,7 +2,7 @@ local keymap = vim.keymap.set
 
 local opt = { noremap = true, silent = true }
 
-keymap("n", "q", "<Nop>") -- close record mode
+-- keymap("n", "q", "q") -- close record mode
 
 -- keymap("n", "<leader>qq", function()
 -- 	vim.keymap_local.set("n", "q")
@@ -55,6 +55,12 @@ end, { desc = "下一个报错" })
 keymap({ "n", "v" }, "<leader>fm", function()
 	require("conform").format({ async = false, lsp_format = "fallback" })
 end, { desc = "Format Code" })
+
+-- 普通模式：光标在函数名上即可
+vim.keymap.set("n", "<leader>hh", "<cmd>TSCppDefineClassFunc<cr>", { desc = "Generate C++ implementation" })
+
+-- 可视模式：必须用 ":" 开头，才能自动补全成 '<,'> 范围
+vim.keymap.set("v", "<leader>hh", ":TSCppDefineClassFunc<cr>", { desc = "Generate C++ implementation" })
 
 keymap({ "n" }, "L", function()
 	require("lsp_signature").toggle_float_win()

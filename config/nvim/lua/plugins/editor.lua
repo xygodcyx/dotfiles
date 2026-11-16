@@ -114,8 +114,14 @@ return {
 			-- vim.keymap.set("n", "gr", "<cmd>Lspsaga finder<CR>", { desc = "Find References" })
 
 			-- 代码操作
-			vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "LSP Code Action" })
+			-- vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "LSP Code Action" })
 			-- vim.keymap.set("n", "<leader>ca", "<cmd>Lspsaga code_action<CR>", { desc = "Code Action" })
+			vim.keymap.set("n", "<leader>ca", function()
+				-- 进入可视模式并选中当前行
+				vim.cmd("normal! V")
+				-- 执行 Code Action
+				vim.lsp.buf.code_action()
+			end, { desc = "Code Action (整行范围)" })
 
 			-- 重命名
 			vim.keymap.set("n", "<leader>rn", "<cmd>Lspsaga rename<CR>", { desc = "Rename" })
@@ -549,6 +555,44 @@ return {
 				},
 			})
 		end,
+	},
+	{
+		"Badhi/nvim-treesitter-cpp-tools",
+		dependencies = { "nvim-treesitter/nvim-treesitter" },
+		cmd = { "TSCppDefineClassFunc" },
+		-- Optional: Configuration
+		opts = function()
+			local options = {
+				preview = {
+					quit = "q", -- optional keymapping for quit preview
+					accept = "<tab>", -- optional keymapping for accept preview
+				},
+				header_extension = "h", -- optional
+				source_extension = "cpp", -- optional
+				custom_define_class_function_commands = { -- optional
+					TSCppImplWrite = {
+						output_handle = require("nt-cpp-tools.output_handlers").get_add_to_cpp(),
+					},
+					--[[
+                <your impl function custom command name> = {
+                    output_handle = function (str, context) 
+                        -- string contains the class implementation
+                        -- do whatever you want to do with it
+                    end
+                }
+                ]]
+				},
+			}
+			return options
+		end,
+		-- End configuration
+		config = true,
+	},
+	{
+		"itsfrank/swell.nvim",
+		keys = {
+			{ "<leader>z", "<Plug>(swell-toggle)", desc = "Toggle window maximize" },
+		},
 	},
 	-- {
 	-- 	"chaoren/vim-wordmotion",
