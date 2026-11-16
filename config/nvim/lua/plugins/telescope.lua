@@ -44,6 +44,7 @@ return {
 				},
 				file_ignore_patterns = {
 					"temp",
+					-- "target",
 					"library",
 					"setting",
 					"vendor",

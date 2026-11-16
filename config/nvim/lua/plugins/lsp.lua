@@ -151,6 +151,7 @@ return {
 							fallbackFlags = { "-std=c++17" },
 						},
 					},
+					tailwindCSS = {},
 					cssls = {
 						filetypes = { "css", "scss", "less" }, -- ⭐ 添加 tcss
 						validate = false,

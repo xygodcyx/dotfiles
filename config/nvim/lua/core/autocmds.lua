@@ -96,7 +96,7 @@ vim.api.nvim_create_autocmd({ "BufEnter", "BufWinEnter" }, {
 vim.api.nvim_create_autocmd("LspAttach", {
 	callback = function(args)
 		local client = vim.lsp.get_client_by_id(args.data.client_id)
-		if client and client.name == "ts_ls" then
+		if client and (client.name == "ts_ls" or client.name == "vtsls") then
 			-- 过滤掉 code 为 6133 的诊断
 
 			if vim.b[args.buf]._ts_ls_diag_patched then
