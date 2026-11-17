@@ -9,10 +9,10 @@ return {
 				history = true,
 				update_events = "TextChanged,TextChangedI",
 			})
-			require("luasnip.loaders.from_vscode").lazy_load()
-			-- require("luasnip.loaders.from_lua").load({
-			-- 	paths = { vim.fn.stdpath("config") .. "/luasnippets" },
-			-- })
+			-- require("luasnip.loaders.from_vscode").lazy_load()
+			require("luasnip.loaders.from_lua").load({
+				paths = { vim.fn.stdpath("config") .. "/luasnippets" },
+			})
 		end,
 		keys = function()
 			-- Disable default tab keybinding in LuaSnip

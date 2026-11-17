@@ -231,13 +231,6 @@ return {
 	},
 
 	{
-		"L3MON4D3/LuaSnip",
-		keys = function()
-			-- Disable default tab keybinding in LuaSnip
-			return {}
-		end,
-	},
-	{
 		"kylechui/nvim-surround",
 		version = "^4.0.0", -- Use for stability; omit to use `main` branch for the latest features
 		event = "VeryLazy",
