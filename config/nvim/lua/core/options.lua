@@ -46,6 +46,7 @@ opt.smartcase = true
 opt.smartindent = true
 opt.hlsearch = false
 opt.cursorline = true
+vim.o.cursorlineopt = "number,line"
 opt.scrolloff = 999
 opt.wrap = true
 
