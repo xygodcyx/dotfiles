@@ -164,7 +164,7 @@ vim.api.nvim_create_autocmd({ "WinEnter" }, {
 vim.api.nvim_create_autocmd("ColorScheme", {
 	callback = function()
 		-- 设置当前行背景色
-		vim.api.nvim_set_hl(0, "CursorLine", { bg = "#333333", underline = false })
+		-- vim.api.nvim_set_hl(0, "CursorLine", { bg = "#333333", underline = false })
 	end,
 })
 -- 使用 BufReadPost 事件，在文件读入后设置
@@ -172,7 +172,7 @@ vim.api.nvim_create_autocmd("BufReadPost", {
 	group = vim.api.nvim_create_augroup("ColorColumn", { clear = true }),
 	callback = function()
 		-- 将背景色设置为 #333300，你可以换成任意喜欢的颜色
-		vim.api.nvim_set_hl(0, "ColorColumn", { bg = "#333333" })
+		-- vim.api.nvim_set_hl(0, "ColorColumn", { bg = "#333333" })
 	end,
 	desc = "设置 colorcolumn 的颜色",
 })
