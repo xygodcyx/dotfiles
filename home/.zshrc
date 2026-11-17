@@ -47,9 +47,8 @@ export PATH="$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/pla
 export PATH="$HOME/.volta/bin:$PATH"
 
 #export LLM_KEY=""
+
 #alias
-
-
 alias cr="cargo run"
 alias cc="cargo check"
 alias cb="cargo build"
