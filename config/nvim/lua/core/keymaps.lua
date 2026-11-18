@@ -32,11 +32,43 @@ keymap("n", "<C-j>", "<C-w>j", { desc = "切换到下窗口" })
 keymap("n", "<C-k>", "<C-w>k", { desc = "切换到上窗口" })
 
 keymap("t", "<C-n>", "<C-\\><C-n>", { desc = "在终端中切换回Normal模式" })
+keymap("t", "<C-h>", function()
+	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+	vim.defer_fn(function()
+		vim.cmd("wincmd h")
+	end, 10)
+end, { desc = "在终端中切换回Normal模式并向左切换window" })
+
+keymap("t", "<C-l>", function()
+	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+	vim.defer_fn(function()
+		vim.cmd("wincmd l")
+	end, 10)
+end, { desc = "在终端中切换回Normal模式并向右切换window" })
+
+keymap("t", "<C-j>", function()
+	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+	vim.defer_fn(function()
+		vim.cmd("wincmd j")
+	end, 10)
+end, { desc = "在终端中切换回Normal模式并向下切换window" })
+
+keymap("t", "<C-k>", function()
+	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+	vim.defer_fn(function()
+		vim.cmd("wincmd k")
+	end, 10)
+end, { desc = "在终端中切换回Normal模式并向上切换window" })
 
 keymap("n", "<C-=>", "<C-w>+", { desc = "增加上下宽度" })
 keymap("n", "<C-->", "<C-w>-", { desc = "减小上下宽度" })
 keymap("n", "<C-,>", "<C-w><", { desc = "增加左右宽度" })
 keymap("n", "<C-.>", "<C-w>>", { desc = "减小左右宽度" })
+
+keymap("n", "<Leader>=", "<C-w>+", { desc = "增加上下宽度" })
+keymap("n", "<Leader>-", "<C-w>-", { desc = "减小上下宽度" })
+keymap("n", "<Leader>,", "<C-w>>", { desc = "增加左右宽度" })
+keymap("n", "<Leader>.", "<C-w><", { desc = "减小左右宽度" })
 
 keymap("v", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action" })
 
