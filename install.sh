@@ -41,6 +41,16 @@ done
 as_user ln -sfn "$DOTFILES/home/.zshrc" "$RUN_HOME/.zshrc"
 as_user ln -sfn "$DOTFILES/home/.gitconfig" "$RUN_HOME/.gitconfig"
 
+# dsh web 用户级服务：开机登录后静默启动（不打开浏览器）
+as_user mkdir -p "$RUN_HOME/.config/systemd/user"
+as_user ln -sfn "$DOTFILES/home/.config/systemd/user/dsh-web.service" \
+  "$RUN_HOME/.config/systemd/user/dsh-web.service"
+RUN_UID="$(id -u "$RUN_USER")"
+if [[ -S "/run/user/$RUN_UID/bus" ]]; then
+  as_user env XDG_RUNTIME_DIR="/run/user/$RUN_UID" systemctl --user daemon-reload
+  as_user env XDG_RUNTIME_DIR="/run/user/$RUN_UID" systemctl --user enable dsh-web.service
+fi
+
 sudo cp -r "$DOTFILES/etc/." /etc/
 # 镜像源由 etc/cron.daily/update-mirrors 每日更新，停用 reflector 包自带的每周定时器
 sudo systemctl enable --now cronie.service

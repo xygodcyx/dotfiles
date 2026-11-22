@@ -14,6 +14,7 @@
 #   · 模块模式（无参数）会先立即渲染（缓存或 "󰚰 --" 占位符），
 #     需要联网检查时在后台进行，完成后通知 waybar 刷新，避免开机时图标空着
 #   · 更新前自动创建 snapper 快照，更新后把变更写入日志（grep pacman.log）
+#   · 检测到内核升级时，更新完成后提醒重启（终端醒目提示 + 桌面通知）
 #   · 更新过程中的选择一律自动应答（yay/paru --noconfirm）；
 #     只有需要 sudo/指纹授权时才发一条普通通知，授权后自动撤掉
 #
@@ -43,8 +44,11 @@ AUR_HELPER="${AUR_HELPER:-yay}"            # 全量更新用的 AUR helper
 # grub-mkconfig 策略：auto=仅在内核增删或 grub 包变化时执行；always/never
 GRUB_MKCONFIG="${GRUB_MKCONFIG:-auto}"
 
+# 内核包：升级/新装后只有重启才会生效
+KERNEL_PKGS="linux linux-lts linux-zen linux-hardened linux-rt linux-rt-lts linux-rt-zen"
+
 # 出现这些包时视为关键更新（红色提醒）
-CRITICAL_PKGS=" linux linux-lts linux-zen linux-hardened glibc systemd nvidia nvidia-dkms nvidia-open-dkms mesa pacman "
+CRITICAL_PKGS=" $KERNEL_PKGS glibc systemd nvidia nvidia-dkms nvidia-open-dkms mesa pacman "
 
 ICON_UPDATES="󰚰"   # md-update
 ICON_OK="󰕥"        # md-shield_check
@@ -60,7 +64,7 @@ else
 fi
 
 usage() {
-  sed -n '2,27p' "$0"
+  sed -n '2,28p' "$0"
 }
 
 # ── 数据采集 ────────────────────────────────────────────────────────
@@ -325,9 +329,30 @@ run_grub_mkconfig() {
   return "$rc"
 }
 
+# 从本次变更中提取被升级/新装的内核包（每行一个）
+kernel_upgrades() {
+  local changes="$1" pkg
+  [[ -z "$changes" ]] && return 0
+  while IFS= read -r pkg; do
+    if [[ -n "$pkg" && " $KERNEL_PKGS " == *" $pkg "* ]]; then
+      printf '%s\n' "$pkg"
+    fi
+  done < <(sed -nE 's/.*\[ALPM\] (upgraded|installed) ([^ ]+) .*/\2/p' <<<"$changes")
+}
+
+# 内核更新后的重启提醒（终端醒目提示 + 桌面通知）
+remind_reboot() {
+  local pkgs="$1"
+  printf '\n  %s%s 内核已更新：%s%s\n' "$BOLD" "$YELLOW" "$pkgs" "$RESET"
+  printf '  %s请保存工作后重启系统（reboot），新内核才会生效%s\n\n' "$BOLD$YELLOW" "$RESET"
+  command -v notify-send >/dev/null 2>&1 || return 0
+  notify-send -u normal -a waybar -i system-reboot \
+    "需要重启系统" "内核已更新（$pkgs），请重启以启用新内核" 2>/dev/null || true
+}
+
 # 把本次更新写入日志（含 grep pacman.log 得到的软件包变更）
 write_update_log() {
-  local start="$1" end="$2" rc="$3" snap_config="$4" snap_num="$5" desc="$6" changes="$7" grub_note="$8"
+  local start="$1" end="$2" rc="$3" snap_config="$4" snap_num="$5" desc="$6" changes="$7" grub_note="$8" reboot_note="${9:-}"
   mkdir -p "$STATE_DIR"
   {
     echo "──────────────────────────────────────────────────────────────"
@@ -346,6 +371,9 @@ write_update_log() {
     fi
     if [[ -n "$grub_note" ]]; then
       echo "  GRUB：$grub_note"
+    fi
+    if [[ -n "$reboot_note" ]]; then
+      echo "  重启提醒：$reboot_note"
     fi
     if [[ -n "$snap_num" ]]; then
       echo "  回滚命令：sudo snapper -c $snap_config rollback $snap_num"
@@ -366,6 +394,7 @@ do_update() {
 
   local start_t desc snap_info snap_config="" snap_num=""
   local log_lines_before changes end_t rc=0 remain=0
+  local kernel_pkgs reboot_note=""
 
   printf '\n%s全量更新%s · %s\n' "$BOLD$CYAN" "$RESET" "$AUR_HELPER -Syu"
 
@@ -386,7 +415,9 @@ do_update() {
   log_lines_before=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
 
   # 2. 全量更新（官方仓库 + AUR）
-  local devel_args=() auto_args=(--noconfirm)
+  # --disable-download-timeout：代理/VPN 偶尔会停顿超过 pacman 默认的 10 秒
+  # 低速阈值；放宽后不会因为一个几百字节的 .sig 下载失败而中止整个事务。
+  local devel_args=() auto_args=(--noconfirm --disable-download-timeout)
   if [[ "${AUR_DEVEL:-0}" == "1" ]]; then
     devel_args+=(--devel)
   fi
@@ -414,6 +445,13 @@ do_update() {
   changes=$(tail -n "+$((log_lines_before + 1))" "$PACMAN_LOG" 2>/dev/null |
     grep -E '\[ALPM\] (upgraded|installed|removed|downgraded|reinstalled)' || true)
 
+  # 检测内核升级：内核包升级/新装后，只有重启才会运行新内核
+  kernel_pkgs=$(kernel_upgrades "$changes" | sort -u | tr '\n' ' ')
+  kernel_pkgs="${kernel_pkgs% }"
+  if [[ -n "$kernel_pkgs" ]]; then
+    reboot_note="内核已更新（$kernel_pkgs），需要重启"
+  fi
+
   # 4. 按需重建 GRUB 配置（内核增删 / grub 包变化时；GRUB_MKCONFIG=always 可强制）
   GRUB_NOTE=""
   if [[ "$rc" -ne 0 ]]; then
@@ -431,7 +469,7 @@ do_update() {
   end_t=$(date '+%Y-%m-%d %H:%M:%S')
 
   # 5. 写日志，并自动复查更新状态（避免更新过程中仓库又推了新版本）
-  write_update_log "$start_t" "$end_t" "$rc" "$snap_config" "$snap_num" "$desc" "$changes" "$GRUB_NOTE"
+  write_update_log "$start_t" "$end_t" "$rc" "$snap_config" "$snap_num" "$desc" "$changes" "$GRUB_NOTE" "$reboot_note"
 
   echo "  [5/5] 记录已写入：$LOG_FILE"
   if [[ -n "$snap_num" ]]; then
@@ -441,6 +479,11 @@ do_update() {
     printf '  %s更新完成%s · %s\n' "$GREEN" "$RESET" "$end_t"
   else
     printf '  %s更新中断/失败（退出码 %s）%s · %s\n' "$RED" "$rc" "$RESET" "$end_t"
+  fi
+
+  # 检测到内核升级：更新完成后提醒重启
+  if [[ -n "$reboot_note" ]]; then
+    remind_reboot "$kernel_pkgs"
   fi
 
   # 更新后复查：重新联网检查并立刻刷状态栏
@@ -808,8 +851,8 @@ list_updates() {
 
   # 更新命令
   printf '%s更新命令%s\n' "$BOLD$GREEN" "$RESET"
-  printf '  sudo pacman -Syu          # 官方仓库（不要用 -Sy 部分升级）\n'
-  printf '  paru -Syu                 # 官方仓库 + AUR\n'
+  printf '  sudo pacman -Syu --disable-download-timeout   # 官方仓库（不要用 -Sy 部分升级）\n'
+  printf '  paru -Syu --disable-download-timeout          # 官方仓库 + AUR\n'
   command -v flatpak >/dev/null 2>&1 && [[ "$flat_n" -gt 0 ]] && \
     printf '  flatpak update            # Flatpak\n'
   printf '\n'

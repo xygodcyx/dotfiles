@@ -6,7 +6,9 @@ local i = ls.insert_node
 return {
 	-- formatoff
 	s("formatoff", {
-		t({ "// clang-format off", "// clang-format on" }),
+		t({ "// clang-format off", "" }),
+		i(1),
+		t({ "", "// clang-format on", "" }),
 	}),
 
 	-- cout log

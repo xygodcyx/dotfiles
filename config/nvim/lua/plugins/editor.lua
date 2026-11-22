@@ -439,6 +439,7 @@ return {
 		},
 	},
 	{
+
 		"MeanderingProgrammer/render-markdown.nvim",
 		dependencies = {
 			{
@@ -453,7 +454,6 @@ return {
 					})
 				end,
 			},
-			"nvim-mini/mini.icons",
 		}, -- if you use standalone mini plugins
 		ft = { "markdown", "llm" },
 
@@ -487,7 +487,7 @@ return {
 					},
 				},
 				anti_conceal = {
-					enabled = false, -- 彻底关闭光标行反隐藏
+					enabled = true, -- 彻底关闭光标行反隐藏
 				},
 				dash = {
 					enabled = true,
@@ -573,107 +573,4 @@ return {
 			{ "<leader>z", "<Plug>(swell-toggle)", desc = "Toggle window maximize" },
 		},
 	},
-	-- {
-	-- 	"chaoren/vim-wordmotion",
-	-- 	event = "VeryLazy",
-	-- 	init = function()
-	-- 		-- vim.g.wordmotion_prefix = "<leader>" -- 可选：给 wordmotion 加前缀键
-	-- 		-- 不加前缀直接覆盖 w/e/b 也可以：
-	-- 		-- vim.g.wordmotion_nomap = 0
-	-- 	end,
-	-- },
-
-	-- {
-	-- 	"folke/flash.nvim",
-	-- 	event = "VeryLazy",
-	-- 	opts = {
-	-- 		modes = {
-	-- 			char = {
-	-- 				jump_labels = true,
-	-- 			},
-	-- 		},
-	-- 	},
-	-- 	keys = {
-	-- 		{
-	-- 			"s",
-	-- 			mode = { "n", "x", "o" },
-	--
-	-- 			function()
-	-- 				require("flash").jump({
-	-- 					search = { mode = "search" },
-	-- 				})
-	-- 			end,
-	-- 			desc = "Flash",
-	-- 		},
-	-- 	},
-	-- },
-	-- {
-	-- "nvim-focus/focus.nvim",
-	-- enable = false,
-	-- config = function()
-	-- 	require("focus").setup({
-	-- 		autoresize = {
-	-- 			enable = true,
-	-- 			width = 0,
-	-- 			height = 0,
-	-- 			minwidth = 0,
-	-- 			minheight = 0,
-	-- 			focusedwindow_minwidth = 0,
-	-- 			focusedwindow_minheight = 0,
-	-- 			height_quickfix = 10,
-	-- 			equalise_min_cols = 0,
-	-- 			equalise_min_rows = 0,
-	-- 		},
-	-- 		commands = true,
-	-- 		enable = true,
-	-- 		split = { bufnew = false, tmux = false },
-	-- 		ui = {
-	-- 			absolutenumber_unfocussed = false,
-	-- 			colorcolumn = { enable = false, list = "+1" },
-	-- 			cursorcolumn = false,
-	-- 			cursorline = true,
-	-- 			hybridnumber = false,
-	-- 			number = false,
-	-- 			relativenumber = false,
-	-- 			signcolumn = false,
-	-- 			winhighlight = false,
-	-- 		},
-	-- 	})
-	-- 	local augroup = vim.api.nvim_create_augroup("FocusDisable", { clear = true })
-	--
-	-- 	local function should_disable_focus()
-	-- 		local name = vim.api.nvim_buf_get_name(0)
-	-- 		local buftype = vim.bo.buftype
-	--
-	-- 		-- dap-ui 左侧面板：DAP Watches / Stacks / Breakpoints / Scopes
-	-- 		if name:match("/DAP ") then
-	-- 			return true
-	-- 		end
-	-- 		-- dap-terminal / dap-repl
-	-- 		if name:match("%[dap%-terminal%]") then
-	-- 			return true
-	-- 		end
-	-- 		if name:match("%[dap%-repl") then
-	-- 			return true
-	-- 		end
-	--
-	-- 		-- 兜底：nofile / prompt / terminal 类型的浮动/工具窗口
-	-- 		if vim.tbl_contains({ "nofile", "prompt", "terminal", "popup" }, buftype) then
-	-- 			return true
-	-- 		end
-	--
-	-- 		return false
-	-- 	end
-	--
-	-- 	vim.api.nvim_create_autocmd({ "WinEnter", "BufWinEnter" }, {
-	-- 		group = augroup,
-	-- 		callback = function()
-	-- 			if should_disable_focus() then
-	-- 				vim.w.focus_disable = true
-	-- 				vim.b.focus_disable = true
-	-- 			end
-	-- 		end,
-	-- 		desc = "Disable focus autoresize for dap-ui and utility windows",
-	-- 	})
-	-- end,
 }

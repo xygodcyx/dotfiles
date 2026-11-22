@@ -1,0 +1,20 @@
+[Unit]
+Description=dsh web (DeepSeek Harness Web UI)
+Documentation=https://github.com/deepseek-ai/dsh
+
+[Service]
+Type=simple
+ExecStart=%h/.volta/bin/dsh web --no-open
+WorkingDirectory=%h
+Environment=HOME=%h
+Environment=PATH=%h/.volta/bin:/usr/local/bin:/usr/bin
+# dsh web prints its tokenized URL to stdout; read it with:
+#   journalctl --user -u dsh-web -b
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target

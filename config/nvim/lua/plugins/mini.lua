@@ -11,7 +11,7 @@ return {
 			-- 启用缩进范围可视化
 			require("mini.indentscope").setup()
 
-			require("mini.move").setup()
+			-- require("mini.move").setup()
 
 			require("mini.splitjoin").setup()
 
