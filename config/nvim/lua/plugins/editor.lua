@@ -245,7 +245,15 @@ return {
 	{
 		"windwp/nvim-autopairs",
 		config = function()
-			require("nvim-autopairs").setup()
+			require("nvim-autopairs").setup({
+				check_ts = true,
+				map_cr = true, -- 在括号内按回车时换行并缩进，默认开启
+				map_bs = true, -- 退格时删除整对括号，默认开启
+				fast_wrap = {}, -- 启用快速包裹功能，通常映射为 <M-e>
+			})
+			-- local cmp = require("cmp")
+			-- local cmp_autopairs = require("nvim-autopairs.completion.cmp")
+			-- cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
 		end,
 	},
 
