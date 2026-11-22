@@ -364,34 +364,16 @@ do_update() {
     fi
   fi
 
-  local total start_t desc snap_info snap_config="" snap_num=""
+  local start_t desc snap_info snap_config="" snap_num=""
   local log_lines_before changes end_t rc=0 remain=0
 
   printf '\n%s全量更新%s · %s\n' "$BOLD$CYAN" "$RESET" "$AUR_HELPER -Syu"
 
-  # 1. 更新前重新检查最新状态（避免旧缓存导致漏更 / 误判）
-  echo "  [1/6] 更新前重新检查最新状态 ..."
-  if refresh_and_signal; then
-    total=$(cached_total)
-    printf '        待更新 %s 个（仓库 %s · AUR %s · Flatpak %s）\n' \
-      "$total" \
-      "$(jq -r 'def n(s): (s|split("\n")|map(select(.!=""))|length); n(.repo)' "$CACHE_FILE")" \
-      "$(jq -r 'def n(s): (s|split("\n")|map(select(.!=""))|length); n(.aur)' "$CACHE_FILE")" \
-      "$(jq -r 'def n(s): (s|split("\n")|map(select(.!=""))|length); n(.flatpak)' "$CACHE_FILE")"
-  else
-    printf '        %s警告：刷新检查失败（pacman 正在运行？），使用上次的检查结果%s\n' "$YELLOW" "$RESET"
-    total=$(cached_total)
-  fi
-  if [[ "$total" -eq 0 ]]; then
-    echo "        系统已是最新，无需更新。"
-    return 0
-  fi
-
   start_t=$(date '+%Y-%m-%d %H:%M:%S')
   desc="Befor Update -- $start_t"
 
-  # 2. snapper 快照
-  echo "  [2/6] 创建 snapper 快照：$desc"
+  # 1. snapper 快照
+  echo "  [1/5] 创建 snapper 快照：$desc"
   snap_info=$(create_snapshot "$desc") || true
   if [[ -n "$snap_info" ]]; then
     snap_config="${snap_info%% *}"
@@ -403,7 +385,7 @@ do_update() {
 
   log_lines_before=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
 
-  # 3. 全量更新（官方仓库 + AUR）
+  # 2. 全量更新（官方仓库 + AUR）
   local devel_args=() auto_args=(--noconfirm)
   if [[ "${AUR_DEVEL:-0}" == "1" ]]; then
     devel_args+=(--devel)
@@ -412,7 +394,7 @@ do_update() {
   case "${AUR_HELPER##*/}" in
     yay) auto_args+=(--answerclean None --answerdiff None --answeredit None) ;;
   esac
-  printf '  [3/6] %s -Syu %s ...\n' "$AUR_HELPER" "${auto_args[*]} ${devel_args[*]}"
+  printf '  [2/5] %s -Syu %s ...\n' "$AUR_HELPER" "${auto_args[*]} ${devel_args[*]}"
   # 选择类问答全部自动应答，唯一可能停下来的就是 sudo 授权
   if sudo_needs_password; then
     notify_auth_required "执行 $AUR_HELPER -Syu（更新软件包）"
@@ -420,38 +402,38 @@ do_update() {
   "$AUR_HELPER" -Syu "${auto_args[@]}" "${devel_args[@]}" || rc=$?
   notify_auth_done
 
-  # 4. Flatpak
+  # 3. Flatpak
   if [[ "$rc" -eq 0 ]] && command -v flatpak >/dev/null 2>&1; then
-    echo "  [4/6] flatpak update ..."
+    echo "  [3/5] flatpak update ..."
     flatpak update -y || rc=$?
   else
-    echo "  [4/6] 跳过 Flatpak"
+    echo "  [3/5] 跳过 Flatpak"
   fi
 
   # 用 grep 提取本次事务在 pacman.log 中的变更
   changes=$(tail -n "+$((log_lines_before + 1))" "$PACMAN_LOG" 2>/dev/null |
     grep -E '\[ALPM\] (upgraded|installed|removed|downgraded|reinstalled)' || true)
 
-  # 5. 按需重建 GRUB 配置（内核增删 / grub 包变化时；GRUB_MKCONFIG=always 可强制）
+  # 4. 按需重建 GRUB 配置（内核增删 / grub 包变化时；GRUB_MKCONFIG=always 可强制）
   GRUB_NOTE=""
   if [[ "$rc" -ne 0 ]]; then
-    echo "  [5/6] 更新未成功，跳过 grub-mkconfig"
+    echo "  [4/5] 更新未成功，跳过 grub-mkconfig"
     GRUB_NOTE="跳过（更新未成功）"
   elif grub_mkconfig_needed "$changes"; then
-    echo "  [5/6] 检测到内核/GRUB 变更，重建 GRUB 配置 ..."
+    echo "  [4/5] 检测到内核/GRUB 变更，重建 GRUB 配置 ..."
     run_grub_mkconfig || true
     [[ -z "$GRUB_NOTE" ]] && GRUB_NOTE="grub-mkconfig 未执行"
   else
-    echo "  [5/6] 跳过 grub-mkconfig（本次没有内核增删 / GRUB 变更）"
+    echo "  [4/5] 跳过 grub-mkconfig（本次没有内核增删 / GRUB 变更）"
     GRUB_NOTE="跳过（无内核/GRUB 变更）"
   fi
 
   end_t=$(date '+%Y-%m-%d %H:%M:%S')
 
-  # 6. 写日志，并自动复查更新状态（避免更新过程中仓库又推了新版本）
+  # 5. 写日志，并自动复查更新状态（避免更新过程中仓库又推了新版本）
   write_update_log "$start_t" "$end_t" "$rc" "$snap_config" "$snap_num" "$desc" "$changes" "$GRUB_NOTE"
 
-  echo "  [6/6] 记录已写入：$LOG_FILE"
+  echo "  [5/5] 记录已写入：$LOG_FILE"
   if [[ -n "$snap_num" ]]; then
     echo "        回滚命令：sudo snapper -c $snap_config rollback $snap_num"
   fi

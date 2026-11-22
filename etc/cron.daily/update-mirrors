@@ -1,0 +1,38 @@
+#!/bin/bash
+# 每日自动刷新 pacman 镜像源（由 cronie 的 cron.daily / anacron 调用）
+# 安装位置：/etc/cron.daily/update-mirrors（install.sh 会复制 etc/ 下的内容）
+
+set -u
+set -o pipefail
+
+# 同一时间只运行一个实例
+exec 9>/run/update-mirrors.lock
+flock -n 9 || exit 0
+
+# pacman 正在运行时不要替换 mirrorlist
+if [[ -e /var/lib/pacman/db.lck ]]; then
+  echo "pacman 正在运行，跳过本次镜像源更新。" >&2
+  exit 0
+fi
+
+# 先写入临时文件，成功后再替换，避免 rate-mirrors 失败时清空 mirrorlist
+tmp=$(mktemp /var/tmp/mirrorlist.XXXXXX)
+trap 'rm -f "$tmp"' EXIT
+
+if /usr/bin/rate-mirrors --protocol https arch | tee "$tmp"; then
+  if [[ -s "$tmp" ]]; then
+    install -m 644 "$tmp" /etc/pacman.d/mirrorlist
+  else
+    echo "rate-mirrors 未返回任何镜像，保留原 mirrorlist。" >&2
+    exit 1
+  fi
+else
+  echo "rate-mirrors 执行失败，保留原 mirrorlist。" >&2
+  exit 1
+fi
+
+# 顺便刷新 Flatpak 远程仓库的 appstream 元数据（只更新“源”，不升级已安装应用）
+if command -v flatpak >/dev/null 2>&1; then
+  flatpak update --appstream -y ||
+    echo "Flatpak appstream 刷新失败，忽略。" >&2
+fi
