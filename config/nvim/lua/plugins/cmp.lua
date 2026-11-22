@@ -146,6 +146,56 @@ return {
 				end,
 			}
 
+			cmp.event:on("confirm_done", function(event)
+				local entry = event.entry
+				if not entry then
+					return
+				end
+
+				local kind = entry:get_kind()
+
+				-- gl / GL_ 前缀的常量也当成“可调用”处理
+				local function is_gl_name(name)
+					return name ~= nil and name:find("^[gG][lL]") ~= nil
+				end
+
+				-- 函数/方法，或 gl* 常量的名字，才继续
+				local is_target = kind == cmp.lsp.CompletionItemKind.Function
+					or kind == cmp.lsp.CompletionItemKind.Method
+					or is_gl_name(entry:get_word())
+
+				if not is_target then
+					return
+				end
+
+				-- 延迟执行，确保 cmp 的文本已完全插入
+				vim.schedule(function()
+					local line = vim.api.nvim_get_current_line()
+					local col = vim.api.nvim_win_get_cursor(0)[2] -- 0-based 字节索引
+
+					-- 条件一：当前是“新行”（光标前只有空白）
+					local before_cursor = line:sub(1, col)
+					if before_cursor:match("^%s*$") then
+						return
+					end
+
+					-- 条件二：光标位于函数实参位置
+					local open_parens = select(2, before_cursor:gsub("%(", ""))
+					local close_parens = select(2, before_cursor:gsub("%)", ""))
+					local char_before = before_cursor:match("%S$")
+
+					if open_parens > close_parens and (char_before == "(" or char_before == ",") then
+						return
+					end
+
+					-- 其余情况：手动补全括号和分号
+					local text_after = line:sub(col + 1)
+					if text_after:match("^%s*$") then
+						vim.api.nvim_put({ "();" }, "c", true, true)
+						vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], col + 1 })
+					end
+				end)
+			end)
 			return opts
 		end,
 	},
