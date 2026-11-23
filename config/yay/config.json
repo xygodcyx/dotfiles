@@ -1,3 +1,5 @@
 {
-	"answerupgrade": "None"
+	"answerclean": "All",
+	"answerupgrade": "None",
+	"cleanAfter": true
 }

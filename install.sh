@@ -55,6 +55,8 @@ sudo cp -r "$DOTFILES/etc/." /etc/
 # 镜像源由 etc/cron.daily/update-mirrors 每日更新，停用 reflector 包自带的每周定时器
 sudo systemctl enable --now cronie.service
 sudo systemctl disable --now reflector.timer 2>/dev/null || true
+# 每周自动清理 pacman 旧包缓存（/etc/conf.d/pacman-contrib 中保留 1 个版本）
+sudo systemctl enable --now paccache.timer 2>/dev/null || true
 sudo systemctl daemon-reload
 
 # 清理旧版 ln -sf 产生的嵌套链接

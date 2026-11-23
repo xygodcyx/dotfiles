@@ -14,6 +14,7 @@
 #   · 模块模式（无参数）会先立即渲染（缓存或 "󰚰 --" 占位符），
 #     需要联网检查时在后台进行，完成后通知 waybar 刷新，避免开机时图标空着
 #   · 更新前自动创建 snapper 快照，更新后把变更写入日志（grep pacman.log）
+#   · 更新成功后自动清理 AUR 构建缓存与 pacman 旧包缓存（默认保留 1 个版本）
 #   · 检测到内核升级时，更新完成后提醒重启（终端醒目提示 + 桌面通知）
 #   · 更新过程中的选择一律自动应答（yay/paru --noconfirm）；
 #     只有需要 sudo/指纹授权时才发一条普通通知，授权后自动撤掉
@@ -23,7 +24,7 @@
 #    updates.sh --force    忽略缓存，重新检查（右键点击调用）
 #    updates.sh --list     在终端里友好地列出全部更新与安全提示
 #    updates.sh --open     交互式菜单：回车=检查/全量更新，数字选择其它操作（左键点击调用）
-#    updates.sh --update   直接执行全量更新：快照 → yay -Syu → 按需重建 GRUB → 写日志
+#    updates.sh --update   直接执行全量更新：快照 → yay -Syu → 按需重建 GRUB → 成功则清理缓存 → 写日志
 #    updates.sh --log      查看更新日志（中键点击调用）
 #    updates.sh --help
 # ════════════════════════════════════════════════════════════════════
@@ -43,6 +44,11 @@ SNAPPER_CONFIG="${SNAPPER_CONFIG:-root}"   # snapper 配置名
 AUR_HELPER="${AUR_HELPER:-yay}"            # 全量更新用的 AUR helper
 # grub-mkconfig 策略：auto=仅在内核增删或 grub 包变化时执行；always/never
 GRUB_MKCONFIG="${GRUB_MKCONFIG:-auto}"
+
+# 更新成功后清理：1=启用，0=禁用
+CLEAN_AFTER_UPDATE="${CLEAN_AFTER_UPDATE:-1}"
+# pacman 旧包缓存保留每个包的版本数（0=全部删除）
+PACMAN_CACHE_KEEP="${PACMAN_CACHE_KEEP:-1}"
 
 # 内核包：升级/新装后只有重启才会生效
 KERNEL_PKGS="linux linux-lts linux-zen linux-hardened linux-rt linux-rt-lts linux-rt-zen"
@@ -64,7 +70,7 @@ else
 fi
 
 usage() {
-  sed -n '2,28p' "$0"
+  sed -n '2,29p' "$0"
 }
 
 # ── 数据采集 ────────────────────────────────────────────────────────
@@ -352,7 +358,7 @@ remind_reboot() {
 
 # 把本次更新写入日志（含 grep pacman.log 得到的软件包变更）
 write_update_log() {
-  local start="$1" end="$2" rc="$3" snap_config="$4" snap_num="$5" desc="$6" changes="$7" grub_note="$8" reboot_note="${9:-}"
+  local start="$1" end="$2" rc="$3" snap_config="$4" snap_num="$5" desc="$6" changes="$7" grub_note="$8" reboot_note="${9:-}" cleanup_note="${10:-}"
   mkdir -p "$STATE_DIR"
   {
     echo "──────────────────────────────────────────────────────────────"
@@ -375,10 +381,57 @@ write_update_log() {
     if [[ -n "$reboot_note" ]]; then
       echo "  重启提醒：$reboot_note"
     fi
+    if [[ -n "$cleanup_note" ]]; then
+      echo "  清理：$cleanup_note"
+    fi
     if [[ -n "$snap_num" ]]; then
       echo "  回滚命令：sudo snapper -c $snap_config rollback $snap_num"
     fi
   } >>"$LOG_FILE"
+}
+
+# 清理本次更新产生的构建产物和临时下载缓存（只在整次更新成功后调用）
+cleanup_build_and_cache() {
+  local helper="$1" cache_dir="" before=0 after=0 freed=0 rc=0
+
+  case "${helper##*/}" in
+    yay)  cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/yay" ;;
+    paru) cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/paru" ;;
+  esac
+
+  echo "  [5/6] 清理构建产物和临时下载缓存 ..."
+
+  if [[ -n "$cache_dir" && -d "$cache_dir" ]]; then
+    before=$(du -sb "$cache_dir" 2>/dev/null | awk '{print $1}')
+    before="${before:-0}"
+    find "$cache_dir" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + 2>/dev/null || true
+    after=$(du -sb "$cache_dir" 2>/dev/null | awk '{print $1}')
+    after="${after:-0}"
+    freed=$(( (before - after) / 1024 / 1024 ))
+    printf '        %s 构建缓存：释放约 %s MiB\n' "${helper##*/}" "$freed"
+  else
+    echo "        未发现 ${helper##*/} 构建缓存，跳过"
+  fi
+
+  if command -v paccache >/dev/null 2>&1; then
+    if sudo_needs_password; then
+      notify_auth_required "清理 pacman 包缓存（sudo paccache -rk${PACMAN_CACHE_KEEP}）"
+    fi
+    sudo paccache -rk"${PACMAN_CACHE_KEEP}" || rc=$?
+    notify_auth_done
+  else
+    if sudo_needs_password; then
+      notify_auth_required "清理 pacman 包缓存（sudo pacman -Sc）"
+    fi
+    sudo pacman -Sc --noconfirm || rc=$?
+    notify_auth_done
+  fi
+
+  # pacman 中断/完成下载后可能留下 download-* 临时目录
+  sudo find /var/cache/pacman/pkg -mindepth 1 -maxdepth 1 -type d -name 'download-*' \
+    -exec rm -rf -- {} + 2>/dev/null || true
+
+  return "$rc"
 }
 
 do_update() {
@@ -394,7 +447,7 @@ do_update() {
 
   local start_t desc snap_info snap_config="" snap_num=""
   local log_lines_before changes end_t rc=0 remain=0
-  local kernel_pkgs reboot_note=""
+  local kernel_pkgs reboot_note="" cleanup_note=""
 
   printf '\n%s全量更新%s · %s\n' "$BOLD$CYAN" "$RESET" "$AUR_HELPER -Syu"
 
@@ -402,7 +455,7 @@ do_update() {
   desc="Befor Update -- $start_t"
 
   # 1. snapper 快照
-  echo "  [1/5] 创建 snapper 快照：$desc"
+  echo "  [1/6] 创建 snapper 快照：$desc"
   snap_info=$(create_snapshot "$desc") || true
   if [[ -n "$snap_info" ]]; then
     snap_config="${snap_info%% *}"
@@ -421,11 +474,12 @@ do_update() {
   if [[ "${AUR_DEVEL:-0}" == "1" ]]; then
     devel_args+=(--devel)
   fi
-  # yay 的构建菜单（清理 / diff / 编辑 PKGBUILD）也预设为"不询问"
+  # yay 的构建菜单：清理构建目录回答 All，安装成功后移除源码；
+  # diff / 编辑 PKGBUILD 仍然预设为"不询问"
   case "${AUR_HELPER##*/}" in
-    yay) auto_args+=(--answerclean None --answerdiff None --answeredit None) ;;
+    yay) auto_args+=(--answerclean All --cleanafter --answerdiff None --answeredit None) ;;
   esac
-  printf '  [2/5] %s -Syu %s ...\n' "$AUR_HELPER" "${auto_args[*]} ${devel_args[*]}"
+  printf '  [2/6] %s -Syu %s ...\n' "$AUR_HELPER" "${auto_args[*]} ${devel_args[*]}"
   # 选择类问答全部自动应答，唯一可能停下来的就是 sudo 授权
   if sudo_needs_password; then
     notify_auth_required "执行 $AUR_HELPER -Syu（更新软件包）"
@@ -435,10 +489,10 @@ do_update() {
 
   # 3. Flatpak
   if [[ "$rc" -eq 0 ]] && command -v flatpak >/dev/null 2>&1; then
-    echo "  [3/5] flatpak update ..."
+    echo "  [3/6] flatpak update ..."
     flatpak update -y || rc=$?
   else
-    echo "  [3/5] 跳过 Flatpak"
+    echo "  [3/6] 跳过 Flatpak"
   fi
 
   # 用 grep 提取本次事务在 pacman.log 中的变更
@@ -455,23 +509,36 @@ do_update() {
   # 4. 按需重建 GRUB 配置（内核增删 / grub 包变化时；GRUB_MKCONFIG=always 可强制）
   GRUB_NOTE=""
   if [[ "$rc" -ne 0 ]]; then
-    echo "  [4/5] 更新未成功，跳过 grub-mkconfig"
+    echo "  [4/6] 更新未成功，跳过 grub-mkconfig"
     GRUB_NOTE="跳过（更新未成功）"
   elif grub_mkconfig_needed "$changes"; then
-    echo "  [4/5] 检测到内核/GRUB 变更，重建 GRUB 配置 ..."
+    echo "  [4/6] 检测到内核/GRUB 变更，重建 GRUB 配置 ..."
     run_grub_mkconfig || true
     [[ -z "$GRUB_NOTE" ]] && GRUB_NOTE="grub-mkconfig 未执行"
   else
-    echo "  [4/5] 跳过 grub-mkconfig（本次没有内核增删 / GRUB 变更）"
+    echo "  [4/6] 跳过 grub-mkconfig（本次没有内核增删 / GRUB 变更）"
     GRUB_NOTE="跳过（无内核/GRUB 变更）"
+  fi
+
+  # 5. 只有整次更新（含 Flatpak）成功后才清理构建产物和下载缓存
+  if [[ "${CLEAN_AFTER_UPDATE}" == "1" && "$rc" -eq 0 ]]; then
+    if cleanup_build_and_cache "$AUR_HELPER"; then
+      cleanup_note="已清理构建缓存与 pacman 旧包缓存（保留 ${PACMAN_CACHE_KEEP} 个版本）"
+    else
+      cleanup_note="清理未完全成功（不影响更新结果，详见终端输出）"
+    fi
+  elif [[ "${CLEAN_AFTER_UPDATE}" != "1" ]]; then
+    echo "  [5/6] 已禁用自动清理（CLEAN_AFTER_UPDATE=0）"
+  else
+    echo "  [5/6] 更新未成功，跳过清理"
   fi
 
   end_t=$(date '+%Y-%m-%d %H:%M:%S')
 
-  # 5. 写日志，并自动复查更新状态（避免更新过程中仓库又推了新版本）
-  write_update_log "$start_t" "$end_t" "$rc" "$snap_config" "$snap_num" "$desc" "$changes" "$GRUB_NOTE" "$reboot_note"
+  # 6. 写日志，并自动复查更新状态（避免更新过程中仓库又推了新版本）
+  write_update_log "$start_t" "$end_t" "$rc" "$snap_config" "$snap_num" "$desc" "$changes" "$GRUB_NOTE" "$reboot_note" "$cleanup_note"
 
-  echo "  [5/5] 记录已写入：$LOG_FILE"
+  echo "  [6/6] 记录已写入：$LOG_FILE"
   if [[ -n "$snap_num" ]]; then
     echo "        回滚命令：sudo snapper -c $snap_config rollback $snap_num"
   fi

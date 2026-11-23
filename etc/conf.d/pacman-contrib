@@ -1,0 +1,8 @@
+# Pacman-Contrib arguments
+#
+# The PACCACHE_ARGS environment variable is used to provide flags
+# and extra arguments to `paccache` when running paccache.service.
+# See `man 8 paccache` or `paccache --help` for further information.
+
+# 每周自动清理旧包缓存；每个包保留 1 个版本
+PACCACHE_ARGS="-rk1"
