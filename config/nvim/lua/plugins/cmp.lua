@@ -48,9 +48,34 @@ return {
 					end)
 				end
 			end
+
+			opts.preselect = cmp.PreselectMode.Item
+			opts.completion = {
+				completeopt = "menu,menuone,noinsert",
+			}
 			-- 合并 mapping
 			opts.mapping = cmp.mapping.preset.insert({
+				["<C-u>"] = cmp.mapping(function(fallback)
+					if cmp.visible() then
+						for _ = 1, 5 do
+							cmp.select_prev_item({ behavior = cmp.SelectBehavior.Select })
+						end
+					else
+						fallback()
+					end
+				end, { "i", "s" }),
+
 				["<C-d>"] = cmp.mapping(function(fallback)
+					if cmp.visible() then
+						for _ = 1, 5 do
+							cmp.select_next_item({ behavior = cmp.SelectBehavior.Select })
+						end
+					else
+						fallback()
+					end
+				end, { "i", "s" }),
+
+				["<C-g>"] = cmp.mapping(function(fallback)
 					if cmp.visible() then
 						require("cmp").open_docs()
 					else
@@ -76,6 +101,7 @@ return {
 				end, { "i", "s" }),
 				["<C-i>"] = cmp.mapping.confirm({ select = true }),
 				["<CR>"] = cmp.mapping.confirm({ select = true }),
+				["<TAB>"] = cmp.mapping.confirm({ select = true }),
 			})
 
 			-- 合并 sources
@@ -107,12 +133,15 @@ return {
 			opts.sorting = {
 				priority_weight = 2,
 				comparators = {
-					require("cmp.config.compare").exact, -- 精确匹配优先
-					require("cmp.config.compare").offset, -- 靠近光标的前缀匹配优先
-					require("cmp.config.compare").score, -- 使用默认的评分
-					-- require("cmp-under-comparator").under, -- 下划线排序优化
-					require("cmp.config.compare").recently_used, -- 最近使用优先
-					require("cmp.config.compare").order, -- 保持源顺序
+					require("cmp.config.compare").exact,
+					require("cmp.config.compare").recently_used,
+					require("cmp.config.compare").score,
+					require("cmp.config.compare").offset,
+					require("cmp.config.compare").locality,
+					require("cmp.config.compare").kind,
+					require("cmp.config.compare").sort_text,
+					require("cmp.config.compare").length,
+					require("cmp.config.compare").order,
 				},
 			}
 			opts.performance = {
