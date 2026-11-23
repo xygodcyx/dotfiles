@@ -2,7 +2,19 @@ local keymap = vim.keymap.set
 
 local opt = { noremap = true, silent = true }
 
--- keymap("n", "q", "q") -- close record mode
+-- 默认禁用 q 键的宏录制功能，防止误触
+vim.keymap.set("n", "q", "<Nop>", { noremap = true, silent = true })
+
+-- 创建一个自定义命令，手动输入时才临时恢复 q 的录制功能
+vim.api.nvim_create_user_command("Record", function()
+	vim.keymap.set("n", "q", "q", { noremap = true })
+	vim.keymap.set("n", "Q", function()
+		vim.keymap.set("n", "q", "<Nop>", { noremap = true, silent = true })
+		vim.keymap.del("n", "Q")
+		vim.notify("宏录制已禁用")
+	end, { noremap = true, silent = true })
+	vim.notify("宏录制已启用，按 q+寄存器 开始录制，按 Q 恢复禁用")
+end, {})
 
 -- keymap("n", "<leader>qq", function()
 -- 	vim.keymap_local.set("n", "q")

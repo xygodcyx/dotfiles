@@ -33,7 +33,21 @@ return {
 		},
 		opts = function(_, opts)
 			local cmp = require("cmp")
+			local lsp_source = require("cmp_nvim_lsp.source")
 
+			if not lsp_source._clangd_completion_cache_patch then
+				lsp_source._clangd_completion_cache_patch = true
+				local original_complete = lsp_source.complete
+
+				lsp_source.complete = function(self, params, callback)
+					return original_complete(self, params, function(response)
+						if self.client.name == "clangd" and response and response.items then
+							response.isIncomplete = false
+						end
+						callback(response)
+					end)
+				end
+			end
 			-- 合并 mapping
 			opts.mapping = cmp.mapping.preset.insert({
 				["<C-d>"] = cmp.mapping(function(fallback)
@@ -68,17 +82,27 @@ return {
 			opts.sources = cmp.config.sources({
 				{
 					name = "nvim_lsp",
+					priority = 1000,
 				},
 				{
 					name = "luasnip",
+					priority = 750,
 				},
-				{ name = "path" },
-				{ name = "buffer" },
+				{
+					name = "path",
+					priority = 500,
+				},
+				{
+					name = "buffer",
+					priority = 250,
+				},
 			})
 			opts.matching = {
+				disallow_fuzzy_matching = false,
+				disallow_fullfuzzy_matching = false,
+				disallow_partial_fuzzy_matching = false,
+				disallow_partial_matching = false,
 				disallow_prefix_unmatching = false,
-				-- disallow_fuzzy_matching = true, -- 完全禁用模糊匹配（不推荐）
-				-- disallow_partial_matching = true, -- 要求输入更完整
 			}
 			opts.sorting = {
 				priority_weight = 2,
@@ -92,9 +116,9 @@ return {
 				},
 			}
 			opts.performance = {
-				debounce = 100, -- 默认 60ms，增加可减少频繁刷新
-				throttle = 50, -- 默认 30ms，增加可减少频繁刷新
-				fetching_timeout = 300, -- 默认 500ms，适当减少可更快获得结果
+				debounce = 60, -- 默认 60ms，增加可减少频繁刷新
+				throttle = 30, -- 默认 30ms，增加可减少频繁刷新
+				fetching_timeout = 1000, -- 默认 500ms，适当减少可更快获得结果
 			}
 
 			-- 补全菜单和文档窗口的边框
@@ -152,34 +176,38 @@ return {
 					return
 				end
 
+				local word = entry:get_word() or ""
 				local kind = entry:get_kind()
 
-				-- gl / GL_ 前缀的常量也当成“可调用”处理
-				local function is_gl_name(name)
-					return name ~= nil and name:find("^[gG][lL]") ~= nil
-				end
+				-- 1. 判断是否需要处理：
+				-- 规则A: gl 开头的函数（要求 gl 后紧跟字母，排除 gl_ 和 GL_）
+				local is_gl_func = word:match("^gl%a") ~= nil
 
-				-- 函数/方法，或 gl* 常量的名字，才继续
-				local is_target = kind == cmp.lsp.CompletionItemKind.Function
-					or kind == cmp.lsp.CompletionItemKind.Method
-					or is_gl_name(entry:get_word())
+				-- 规则B: 普通函数、方法
+				local is_normal_func = (
+					kind == cmp.lsp.CompletionItemKind.Function or kind == cmp.lsp.CompletionItemKind.Method
+				)
 
-				if not is_target then
+				-- 规则C: 类、结构体（如果你希望它们也补全括号分号的话）
+				-- local is_type = (kind == cmp.lsp.CompletionItemKind.Class or kind == cmp.lsp.CompletionItemKind.Struct)
+				--
+				-- 如果不是以上任何一种，直接退出
+				if not (is_gl_func or is_normal_func) then
 					return
 				end
 
-				-- 延迟执行，确保 cmp 的文本已完全插入
+				-- 2. 延迟执行，确保 cmp 已经把文本完全插入
 				vim.schedule(function()
 					local line = vim.api.nvim_get_current_line()
 					local col = vim.api.nvim_win_get_cursor(0)[2] -- 0-based 字节索引
-
-					-- 条件一：当前是“新行”（光标前只有空白）
 					local before_cursor = line:sub(1, col)
+
+					-- 条件一：如果是新行，或者光标前只有空白，不处理
 					if before_cursor:match("^%s*$") then
 						return
 					end
 
-					-- 条件二：光标位于函数实参位置
+					-- 条件二：在函数实参位置（已有未闭合的括号）不处理
 					local open_parens = select(2, before_cursor:gsub("%(", ""))
 					local close_parens = select(2, before_cursor:gsub("%)", ""))
 					local char_before = before_cursor:match("%S$")
@@ -188,10 +216,17 @@ return {
 						return
 					end
 
-					-- 其余情况：手动补全括号和分号
+					-- 条件三：如果后面已经有括号或分号，不再重复插入
 					local text_after = line:sub(col + 1)
+					if text_after:match("^%s*%(+%)") or text_after:match("^%s*;") then
+						return
+					end
+
+					-- 3. 执行插入 "();"
 					if text_after:match("^%s*$") then
+						-- 插入括号和分号
 						vim.api.nvim_put({ "();" }, "c", true, true)
+						-- 将光标移动到括号内
 						vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], col + 1 })
 					end
 				end)

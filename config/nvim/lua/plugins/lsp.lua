@@ -65,6 +65,7 @@ return {
 		end,
 
 		opts = function()
+			require("lspconfig").glsl_analyzer.setup({})
 			local capabilities = require("cmp_nvim_lsp").default_capabilities()
 			-- local capabilities = require("blink.cmp").get_lsp_capabilities()
 			local mason_registry = require("mason-registry")
@@ -142,9 +143,9 @@ return {
 							"clangd",
 							"--background-index",
 							"--clang-tidy",
-							-- "--header-insertion=iwyu",
 							"--header-insertion=never",
-							"--completion-style=bundled",
+							"--completion-style=detailed",
+							"--limit-results=0",
 							"--fallback-style=google",
 						},
 						init_options = {
