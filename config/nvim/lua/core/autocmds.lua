@@ -163,7 +163,7 @@ vim.api.nvim_create_autocmd({ "WinEnter" }, {
 
 local function switch_to_chinese()
 	if vim.fn.has("linux") == 1 then
-		vim.system({ "ibus", "engine", "你的中文输入法ID" })
+		vim.system({ "fcitx5-remote", "-s", "rime" })
 	elseif vim.fn.has("mac") == 1 then
 		vim.system({ "macism", "com.apple.inputmethod.SCIM.ITABC" })
 	end
@@ -171,7 +171,7 @@ end
 
 local function switch_to_english()
 	if vim.fn.has("linux") == 1 then
-		vim.system({ "ibus", "engine", "xkb:us::eng" })
+		vim.system({ "fcitx5-remote", "-s", "keyboard-us" })
 	elseif vim.fn.has("mac") == 1 then
 		vim.system({ "macism", "com.apple.keylayout.ABC" })
 	end
