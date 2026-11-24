@@ -581,4 +581,13 @@ return {
 			{ "<leader>z", "<Plug>(swell-toggle)", desc = "Toggle window maximize" },
 		},
 	},
+	{
+		"keaising/im-select.nvim",
+		config = function()
+			require("im_select").setup({
+				set_default_events = { "InsertLeave", "CmdlineLeave" },
+				set_previous_events = {},
+			})
+		end,
+	},
 }

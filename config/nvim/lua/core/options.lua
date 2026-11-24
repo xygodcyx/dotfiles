@@ -32,9 +32,11 @@ opt.autowrite = true
 
 -- 消息/报错不再阻塞输入：
 -- 去掉 hit-enter，长消息和报错只短暂显示，不再要求按 Enter 处理
-if vim.fn.exists("&messagesopt") == 1 then
-	opt.messagesopt = "wait:0,history:500,progress:c"
-end
+-- if vim.fn.exists("&messagesopt") == 1 then
+-- 	opt.messagesopt = "wait:0,history:500,progress:c"
+-- end
+-- opt.messagesopt = "wait:2000,history:500,progress:c"
+
 opt.more = false -- 关闭 -- More -- 分页提示
 vim.o.autoread = true
 vim.bo.autoread = true

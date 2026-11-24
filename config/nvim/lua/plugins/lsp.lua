@@ -65,7 +65,6 @@ return {
 		end,
 
 		opts = function()
-			require("lspconfig").glsl_analyzer.setup({})
 			local capabilities = require("cmp_nvim_lsp").default_capabilities()
 			-- local capabilities = require("blink.cmp").get_lsp_capabilities()
 			local mason_registry = require("mason-registry")
@@ -87,6 +86,7 @@ return {
 			}
 			return {
 				servers = {
+					glsl_analyzer = {},
 					qmlls = {},
 					dartls = {
 						cmd = { "dart", "language-server", "--protocol=lsp" },
@@ -257,14 +257,14 @@ return {
 			}
 		end,
 		config = function(_, opts)
-			local lspconfig = require("lspconfig")
 			local capabilities = require("cmp_nvim_lsp").default_capabilities()
 			for server, config in pairs(opts.servers) do
 				config.capabilities = vim.tbl_deep_extend("force", capabilities, config.capabilities or {})
 
 				local has_setup = opts.setup and (opts.setup[server] or opts.setup["*"])
 				if not has_setup or not has_setup(server, config) then
-					lspconfig[server].setup(config)
+					vim.lsp.config(server, config)
+					vim.lsp.enable(server)
 				end
 			end
 		end,
