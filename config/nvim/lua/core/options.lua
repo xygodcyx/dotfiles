@@ -9,7 +9,7 @@ opt.undofile = false -- 开启文件持久化撤销（保存退出后依然能 u
 -- opt.undodir = vim.fn.stdpath("data") .. "/undo" -- 撤销历史文件保存目录
 opt.undolevels = 3000 -- 最大可撤销步数（默认 1000，调大到 10000）
 opt.undoreload = 3000 -- 文件被外部修改重载时保留的最大撤销行数
-opt.timeoutlen = 300
+opt.timeoutlen = 500
 
 opt.number = true
 opt.relativenumber = true
@@ -72,7 +72,7 @@ vim.diagnostic.config({
 		spacing = 4, -- 与代码的间隔
 	},
 	underline = true,
-	update_in_insert = false, -- 插入模式不刷新报错，避免每次输入都触发诊断卡顿
+	update_in_insert = true, -- 插入模式不刷新报错，避免每次输入都触发诊断卡顿
 	signs = {
 		text = {
 			[vim.diagnostic.severity.ERROR] = "",
@@ -87,5 +87,9 @@ vim.filetype.add({
 	extension = {
 		gdshader = "cpp",
 		tcss = "css", -- .tcss 文件类型识别为 css
+	},
+	pattern = {
+		[".env"] = "sh", -- 注意不要写成 "%.env"，Neovim 0.12 内置 env 表会覆盖
+		[".*%.env%..*"] = "sh", -- .env.local / .env.production
 	},
 })

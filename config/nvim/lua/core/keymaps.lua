@@ -30,6 +30,7 @@ keymap("i", "<C-l>", "<ESC>A", opt)
 -- keymap("i", "jj", "<ESC>")
 -- keymap("i", "jk", "<ESC>")
 keymap("i", "<C-n>", "<ESC>")
+-- keymap("i", "<C-j>", "<ESC>")
 
 keymap("n", "<C-v>", "V")
 keymap("n", "V", "<C-v>")
