@@ -36,14 +36,14 @@ vim.api.nvim_create_autocmd("LspAttach", {
 	end,
 })
 
-vim.api.nvim_create_autocmd("BufReadPost", {
-	pattern = "*",
-	callback = function()
-		vim.schedule(function()
-			vim.cmd("normal! zx") -- zx 用于刷新并应用当前文件的折叠
-		end)
-	end,
-})
+-- vim.api.nvim_create_autocmd("BufReadPost", {
+-- 	pattern = "*",
+-- 	callback = function()
+-- 		vim.schedule(function()
+-- 			vim.cmd("normal! zx") -- zx 用于刷新并应用当前文件的折叠
+-- 		end)
+-- 	end,
+-- })
 
 vim.api.nvim_create_autocmd("BufReadPost", {
 	pattern = "*",
