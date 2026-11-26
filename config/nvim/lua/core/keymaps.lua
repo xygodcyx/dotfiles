@@ -28,9 +28,9 @@ keymap("i", "<C-l>", "<ESC>A", opt)
 -- 使用 <Esc> 或 <C-[> 退出插入模式。如需快捷退出，请改用非字母组合（如 ;;）。
 -- keymap("i", "kk", "<ESC>")
 -- keymap("i", "jj", "<ESC>")
--- keymap("i", "jk", "<ESC>")
+keymap("i", "jk", "<ESC>")
 keymap("i", "<C-n>", "<ESC>")
--- keymap("i", "<C-j>", "<ESC>")
+keymap("i", "<C-i>", "<ESC>")
 
 keymap("n", "<C-v>", "V")
 keymap("n", "V", "<C-v>")

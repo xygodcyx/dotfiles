@@ -33,24 +33,33 @@
 -- 	end,
 -- }
 
+-- return {
+-- 	"dgox16/oldworld.nvim",
+-- 	lazy = false,
+-- 	priority = 1000,
+-- 	config = function()
+-- 		require("oldworld").setup({
+-- 			styles = {
+-- 				booleans = { italic = true, bold = true },
+-- 			},
+-- 			integrations = {
+-- 				hop = true,
+-- 				telescope = false,
+-- 				cmp = false,
+-- 			},
+-- 			highlight_overrides = {
+-- 				-- Comment = { bg = "#ff0000" },
+-- 			},
+-- 		})
+-- 		vim.cmd.colorscheme("oldworld")
+-- 	end,
+-- }
+
 return {
-	"dgox16/oldworld.nvim",
+	"scottmckendry/cyberdream.nvim",
 	lazy = false,
 	priority = 1000,
 	config = function()
-		require("oldworld").setup({
-			styles = {
-				booleans = { italic = true, bold = true },
-			},
-			integrations = {
-				hop = true,
-				telescope = false,
-				cmp = false,
-			},
-			highlight_overrides = {
-				-- Comment = { bg = "#ff0000" },
-			},
-		})
-		vim.cmd.colorscheme("oldworld")
+		vim.cmd.colorscheme("cyberdream")
 	end,
 }
